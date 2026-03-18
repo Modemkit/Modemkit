@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RuleSet Name="ModemKit Rules" Description="Static analysis and StyleCop rules inspired by PowerToys src/codeAnalysis." ToolsVersion="16.0">
+  <Rules AnalyzerId="Microsoft.CodeAnalysis.CSharp.NetAnalyzers" RuleNamespace="Microsoft.CodeAnalysis.CSharp.NetAnalyzers">
+    <Rule Id="CA1062" Action="Warning" />
+    <Rule Id="CA1303" Action="None" />
+    <Rule Id="CA1707" Action="None" />
+    <Rule Id="CA1716" Action="None" />
+    <Rule Id="CA1720" Action="None" />
+    <Rule Id="CA1822" Action="None" />
+    <Rule Id="CA2007" Action="None" />
+  </Rules>
+  <Rules AnalyzerId="StyleCop.Analyzers" RuleNamespace="StyleCop.Analyzers">
+    <Rule Id="SA0001" Action="Warning" />
+    <Rule Id="SA1101" Action="None" />
+    <Rule Id="SA1200" Action="None" />
+    <Rule Id="SA1204" Action="None" />
+    <Rule Id="SA1309" Action="None" />
+    <Rule Id="SA1402" Action="None" />
+    <Rule Id="SA1413" Action="None" />
+    <Rule Id="SA1503" Action="Warning" />
+    <Rule Id="SA1513" Action="Warning" />
+    <Rule Id="SA1516" Action="Warning" />
+    <Rule Id="SA1600" Action="None" />
+    <Rule Id="SA1633" Action="None" />
+    <Rule Id="SA1636" Action="None" />
+    <Rule Id="SA1649" Action="None" />
+  </Rules>
+</RuleSet>
