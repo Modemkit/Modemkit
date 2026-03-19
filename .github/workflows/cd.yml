@@ -1,0 +1,132 @@
+name: cd
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish target
+        required: true
+        default: None
+        type: choice
+        options:
+          - None
+          - NuGet
+      version:
+        description: Optional version override for manual runs (for example 1.0.0 or 1.0.0-beta.1)
+        required: false
+        type: string
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    env:
+      NUGET_PACKAGE_SOURCE: https://api.nuget.org/v3/index.json
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+          cache: true
+          cache-dependency-path: |
+            Directory.Build.props
+            Ymodem.Protocol/Ymodem.Protocol.csproj
+            Ymodem.Protocol.Tests/Ymodem.Protocol.Tests.csproj
+
+      - name: Restore
+        run: dotnet restore ModemKit.slnx
+
+      - id: meta
+        name: Resolve version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          is_release=false
+          input_version="${{ github.event.inputs.version }}"
+          input_version="${input_version#v}"
+
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            is_release=true
+            tag="${GITHUB_REF_NAME}"
+            version="${tag#v}"
+          elif [[ -n "${input_version}" ]]; then
+            version="${input_version}"
+            tag="v${version}"
+          else
+            latest_tag="$(git tag --list 'v*' --sort=-version:refname | head -n 1)"
+            if [[ -n "${latest_tag}" ]]; then
+              base_version="${latest_tag#v}"
+              base_version="${base_version%%-*}"
+            else
+              base_version="0.1.0"
+            fi
+
+            version="${base_version}-ci.${GITHUB_RUN_NUMBER}"
+            tag="v${version}"
+          fi
+
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "is_release=${is_release}" >> "${GITHUB_OUTPUT}"
+
+      - name: Test
+        run: dotnet test Ymodem.Protocol.Tests/Ymodem.Protocol.Tests.csproj --configuration Release --no-restore -p:Version=${{ steps.meta.outputs.version }}
+
+      - name: Pack
+        run: |
+          dotnet pack Ymodem.Protocol/Ymodem.Protocol.csproj \
+            --configuration Release \
+            --no-restore \
+            --output "${{ github.workspace }}/artifacts" \
+            -p:ContinuousIntegrationBuild=true \
+            -p:Version=${{ steps.meta.outputs.version }} \
+            -p:PackageVersion=${{ steps.meta.outputs.version }} \
+            -p:RepositoryBranch=${GITHUB_REF_NAME} \
+            -p:RepositoryCommit=${GITHUB_SHA}
+
+      - name: Upload package artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ymodem-protocol-${{ steps.meta.outputs.version }}
+          path: artifacts/*.nupkg
+          if-no-files-found: error
+
+      - name: Validate NuGet trusted publishing config
+        if: ${{ steps.meta.outputs.is_release == 'true' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'NuGet') }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${{ vars.NUGET_USER }}" ]]; then
+            echo "Repository variable NUGET_USER is required for NuGet/login@v1."
+            exit 1
+          fi
+
+      - name: NuGet login
+        if: ${{ steps.meta.outputs.is_release == 'true' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'NuGet') }}
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: ${{ vars.NUGET_USER }}
+
+      - name: Publish the package to nuget.org
+        if: ${{ steps.meta.outputs.is_release == 'true' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'NuGet') }}
+        run: dotnet nuget push "artifacts/*.nupkg" --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --source "${{ env.NUGET_PACKAGE_SOURCE }}" --skip-duplicate
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        if: ${{ steps.meta.outputs.is_release == 'true' }}
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          generate_release_notes: true
+          files: artifacts/*.nupkg
