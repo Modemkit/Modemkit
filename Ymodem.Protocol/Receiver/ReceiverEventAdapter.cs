@@ -16,7 +16,7 @@ namespace Ymodem.Protocol
             _packetDecoder = packetDecoder ?? throw new ArgumentNullException(nameof(packetDecoder));
         }
 
-        public YModemEvent Decode(byte[] bytes)
+        public YModemEvent Decode(byte[] bytes, bool isDataPhase = false)
         {
             if (bytes == null)
             {
@@ -28,7 +28,7 @@ namespace Ymodem.Protocol
                 return new YModemEvent.CancelRequested("Peer cancelled the transfer.");
             }
 
-            var packet = _packetDecoder.Decode(bytes);
+            var packet = _packetDecoder.Decode(bytes, isDataPhase);
             return new YModemEvent.PacketReceived(packet);
         }
     }

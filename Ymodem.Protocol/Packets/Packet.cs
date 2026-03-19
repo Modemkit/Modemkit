@@ -30,9 +30,9 @@ namespace Ymodem.Protocol
                     throw new ArgumentNullException(nameof(payload));
                 }
 
-                if (blockNumber <= 0)
+                if (blockNumber < 0)
                 {
-                    throw new ArgumentOutOfRangeException(nameof(blockNumber), "Data block number must be positive.");
+                    throw new ArgumentOutOfRangeException(nameof(blockNumber), "Data block number must be non-negative.");
                 }
 
                 if (dataLength < 0 || dataLength > payload.Length)

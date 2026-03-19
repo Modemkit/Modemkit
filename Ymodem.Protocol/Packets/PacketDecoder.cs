@@ -5,7 +5,7 @@ namespace Ymodem.Protocol
 {
     public sealed class YModemPacketDecoder
     {
-        public YModemPacket Decode(byte[] bytes)
+        public YModemPacket Decode(byte[] bytes, bool isDataPhase = false)
         {
             if (bytes == null)
             {
@@ -40,7 +40,7 @@ namespace Ymodem.Protocol
                 throw new InvalidOperationException("Packet CRC is invalid.");
             }
 
-            if (blockNumber == 0)
+            if (blockNumber == 0 && !isDataPhase)
             {
                 return DecodeBlockZero(payload);
             }
