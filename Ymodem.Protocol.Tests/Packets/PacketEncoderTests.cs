@@ -34,6 +34,45 @@ namespace Ymodem.Protocol.Tests
         }
 
         [Fact]
+        public void EncodeHeaderUsesBlockZeroSohWhenMetadataFits128Bytes()
+        {
+            var encoder = new YModemPacketEncoder();
+            var packet = new YModemPacket.Header(new YModemFileDescriptor(new string('a', 118) + ".bin", 123));
+
+            var bytes = encoder.Encode(packet);
+
+            Assert.Equal(133, bytes.Length);
+            Assert.Equal(YModemControlBytes.Soh, bytes[0]);
+            Assert.Equal(0, bytes[1]);
+            Assert.Equal(255, bytes[2]);
+        }
+
+        [Fact]
+        public void EncodeHeaderUsesBlockZeroStxWhenMetadataExceeds128Bytes()
+        {
+            var encoder = new YModemPacketEncoder();
+            var packet = new YModemPacket.Header(new YModemFileDescriptor(new string('a', 119) + ".bin", 123));
+
+            var bytes = encoder.Encode(packet);
+
+            Assert.Equal(1029, bytes.Length);
+            Assert.Equal(YModemControlBytes.Stx, bytes[0]);
+            Assert.Equal(0, bytes[1]);
+            Assert.Equal(255, bytes[2]);
+        }
+
+        [Fact]
+        public void EncodeBatchTrailerUses128ByteBlockByDefault()
+        {
+            var encoder = new YModemPacketEncoder();
+
+            var bytes = encoder.Encode(new YModemPacket.BatchTrailer());
+
+            Assert.Equal(133, bytes.Length);
+            Assert.Equal(YModemControlBytes.Soh, bytes[0]);
+        }
+
+        [Fact]
         public void EncodeDataUsesConfiguredBlockSizeAndPadsWithCpmEof()
         {
             var encoder = new YModemPacketEncoder(128);
@@ -88,6 +127,17 @@ namespace Ymodem.Protocol.Tests
             InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() => encoder.Encode(packet));
 
             Assert.Contains("non-ASCII", exception.Message);
+        }
+
+        [Fact]
+        public void EncodeOversizedAsciiHeaderThrowsInvalidOperationException()
+        {
+            var encoder = new YModemPacketEncoder();
+            var packet = new YModemPacket.Header(new YModemFileDescriptor(new string('a', 1020) + ".bin", 100));
+
+            InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() => encoder.Encode(packet));
+
+            Assert.Contains("exceeds 1024 bytes", exception.Message);
         }
     }
 }

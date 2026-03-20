@@ -27,7 +27,7 @@ namespace Ymodem.Protocol
             switch (packet)
             {
                 case YModemPacket.Header header:
-                    return BuildHeaderFrame(header.File);
+                    return BuildHeaderFrame(header.File, header.BlockSize);
                 case YModemPacket.Data data:
                     return BuildDataFrame(data.BlockNumber, data.Payload, data.DataLength, data.BlockSize == 0 ? _dataBlockSize : data.BlockSize);
                 case YModemPacket.Eot _:
@@ -39,7 +39,7 @@ namespace Ymodem.Protocol
             }
         }
 
-        private static byte[] BuildHeaderFrame(YModemFileDescriptor file)
+        private static byte[] BuildHeaderFrame(YModemFileDescriptor file, int blockSize)
         {
             foreach (var ch in file.FileName)
             {
@@ -49,17 +49,20 @@ namespace Ymodem.Protocol
                 }
             }
 
-            var payload = new byte[128];
             var headerText = file.FileName + "\0" + file.FileSize + "\0";
             var headerBytes = Encoding.ASCII.GetBytes(headerText);
+            var resolvedBlockSize = blockSize == 0
+                ? YModemBlockSizing.GetHeaderBlockSize(file)
+                : blockSize;
+            var payload = new byte[resolvedBlockSize];
 
             if (headerBytes.Length > payload.Length)
             {
-                throw new InvalidOperationException("File header metadata exceeds 128 bytes.");
+                throw new InvalidOperationException("File header metadata exceeds 1024 bytes.");
             }
 
             Buffer.BlockCopy(headerBytes, 0, payload, 0, headerBytes.Length);
-            return BuildFrame(0, payload, 128);
+            return BuildFrame(0, payload, resolvedBlockSize);
         }
 
         private static byte[] BuildEmptyHeaderFrame()
