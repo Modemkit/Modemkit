@@ -26,7 +26,7 @@ namespace Ymodem.Protocol.Tests
             YModemStepResult step4 = sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest));
             YModemAction.RequestDataBlock requestData = Assert.IsType<YModemAction.RequestDataBlock>(Assert.Single(step4.Actions));
             Assert.Equal(1, requestData.BlockNumber);
-            Assert.Equal(1024, requestData.BlockSize);
+            Assert.Equal(128, requestData.BlockSize);
             Assert.Equal(YModemSenderPhase.WaitingDataBlock, step4.Snapshot.Phase);
 
             var payload = new byte[] { 0x41, 0x42, 0x43 };
@@ -125,7 +125,7 @@ namespace Ymodem.Protocol.Tests
         }
 
         [Fact]
-        public void SenderKeepsInitialBlockSizeAt1KForSmallFiles()
+        public void SenderRequests128ByteFirstDataBlockForSmallFiles()
         {
             var sender = new YModemSender();
 
@@ -135,7 +135,7 @@ namespace Ymodem.Protocol.Tests
 
             YModemAction.RequestDataBlock requestData = Assert.IsType<YModemAction.RequestDataBlock>(Assert.Single(sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest)).Actions));
             Assert.Equal(1, requestData.BlockNumber);
-            Assert.Equal(1024, requestData.BlockSize);
+            Assert.Equal(128, requestData.BlockSize);
         }
 
         [Fact]

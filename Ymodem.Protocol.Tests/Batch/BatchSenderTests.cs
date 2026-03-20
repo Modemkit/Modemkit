@@ -61,7 +61,7 @@ namespace Ymodem.Protocol.Tests
         }
 
         [Fact]
-        public void BatchSenderKeepsInitialBlockSizeAt1KForSmallFiles()
+        public void BatchSenderRequests128ByteFirstDataBlockForSmallFiles()
         {
             var sender = new YModemBatchSender();
 
@@ -71,7 +71,7 @@ namespace Ymodem.Protocol.Tests
 
             YModemAction.RequestDataBlock requestData = Assert.IsType<YModemAction.RequestDataBlock>(Assert.Single(sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest)).Actions));
             Assert.Equal(1, requestData.BlockNumber);
-            Assert.Equal(1024, requestData.BlockSize);
+            Assert.Equal(128, requestData.BlockSize);
         }
 
         [Fact]

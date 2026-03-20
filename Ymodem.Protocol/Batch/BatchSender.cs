@@ -267,9 +267,17 @@ namespace Ymodem.Protocol
 
         private int GetNextBlockSize()
         {
-            if (_shortTailBlockEnabled && _dataBlockSize == 1024 && _remainingFileBytes < 1024)
+            if (_dataBlockSize == 1024)
             {
-                return 128;
+                if (_remainingFileBytes <= 128)
+                {
+                    return 128;
+                }
+
+                if (_shortTailBlockEnabled && _remainingFileBytes < 1024)
+                {
+                    return 128;
+                }
             }
 
             return _dataBlockSize;
