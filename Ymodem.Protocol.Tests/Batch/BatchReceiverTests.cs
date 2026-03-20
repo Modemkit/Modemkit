@@ -95,37 +95,13 @@ namespace Ymodem.Protocol.Tests
 
             YModemAction.SendPacket sendWrappedData = Assert.IsType<YModemAction.SendPacket>(Assert.Single(sender.Advance(new YModemEvent.DataBlockReady(256, payload, 1, true)).Actions));
             YModemPacket.Data packet = Assert.IsType<YModemPacket.Data>(sendWrappedData.Packet);
-            Assert.Equal(256, packet.BlockNumber);
+            Assert.Equal(0, packet.BlockNumber);
 
             YModemBatchReceiveStepResult step = receiver.Advance(new YModemEvent.PacketReceived(packet));
 
             YModemAction.DeliverDataBlock deliver = Assert.IsType<YModemAction.DeliverDataBlock>(Assert.Single(step.Actions));
-            Assert.Equal(256, deliver.BlockNumber);
+            Assert.Equal(0, deliver.BlockNumber);
             Assert.Equal(1024, deliver.DataLength);
-            Assert.Equal(YModemBatchReceiverPhase.WaitingDataBlockDecision, step.Snapshot.Phase);
-        }
-
-        [Fact]
-        public void BatchReceiverAcceptsAbsoluteBlockNumberAfterBlockNumberWrapsAround()
-        {
-            const long fileSize = (256L * 1024) + 1;
-            var receiver = new YModemBatchReceiver();
-            receiver.Advance(new YModemEvent.StartRequested());
-            receiver.Advance(new YModemEvent.PacketReceived(new YModemPacket.Header(new YModemFileDescriptor("large.bin", fileSize))));
-            receiver.Advance(new YModemEvent.FileHeaderAccepted());
-
-            var payload = new byte[1024];
-
-            for (var i = 1; i <= 255; i++)
-            {
-                receiver.Advance(new YModemEvent.PacketReceived(new YModemPacket.Data(i, payload, payload.Length)));
-                receiver.Advance(new YModemEvent.DataBlockAccepted());
-            }
-
-            YModemBatchReceiveStepResult step = receiver.Advance(new YModemEvent.PacketReceived(new YModemPacket.Data(256, payload, payload.Length)));
-
-            YModemAction.DeliverDataBlock deliver = Assert.IsType<YModemAction.DeliverDataBlock>(Assert.Single(step.Actions));
-            Assert.Equal(256, deliver.BlockNumber);
             Assert.Equal(YModemBatchReceiverPhase.WaitingDataBlockDecision, step.Snapshot.Phase);
         }
 

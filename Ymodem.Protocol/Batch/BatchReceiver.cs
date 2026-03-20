@@ -163,15 +163,16 @@ namespace Ymodem.Protocol
                 return;
             }
 
-            var previousBlockNumber = _nextBlockNumber - 1;
+            var previousBlockNumber = (_nextBlockNumber - 1) & 0xFF;
+            var expectedBlockNumber = _nextBlockNumber & 0xFF;
 
-            if (MatchesBlockNumber(data.BlockNumber, previousBlockNumber))
+            if (data.BlockNumber == previousBlockNumber)
             {
                 _actions.Add(new YModemAction.SendControl(YModemControlBytes.Ack, "Acknowledge repeated data block"));
                 return;
             }
 
-            if (!MatchesBlockNumber(data.BlockNumber, _nextBlockNumber))
+            if (data.BlockNumber != expectedBlockNumber)
             {
                 _actions.Add(new YModemAction.SendControl(YModemControlBytes.Nak, "Reject unexpected data block"));
                 return;
@@ -216,11 +217,6 @@ namespace Ymodem.Protocol
             _pendingDataPacket = null;
             _phase = YModemBatchReceiverPhase.WaitingDataPacketOrEot;
             _actions.Add(new YModemAction.SendControl(YModemControlBytes.Nak, "Reject data block"));
-        }
-
-        private static bool MatchesBlockNumber(int actualBlockNumber, int expectedBlockNumber)
-        {
-            return actualBlockNumber == expectedBlockNumber || actualBlockNumber == (expectedBlockNumber & 0xFF);
         }
 
         private void HandleSecondEot(YModemPacket packet)

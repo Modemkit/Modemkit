@@ -271,7 +271,7 @@ namespace Ymodem.Protocol
                 return;
             }
 
-            var packet = new YModemPacket.Data(protocolEvent.BlockNumber, protocolEvent.Data, protocolEvent.DataLength);
+            var packet = new YModemPacket.Data(protocolEvent.BlockNumber & 0xFF, protocolEvent.Data, protocolEvent.DataLength);
             _lastPacket = packet;
             _lastDataBlockSent = protocolEvent.IsLastBlock;
             _phase = YModemSenderPhase.WaitingBlockAck;
