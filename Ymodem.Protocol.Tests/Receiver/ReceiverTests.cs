@@ -188,7 +188,7 @@ namespace Ymodem.Protocol.Tests
         [Fact]
         public void ReceiverAcceptsSenderPacketLevelDataPacketAfterBlockNumberWrapsAround()
         {
-            const long fileSize = (256L * 1024) + 1;
+            const long fileSize = (255L * 1024) + 1;
             var sender = new YModemSender();
             var receiver = new YModemReceiver();
             var payload = new byte[1024];
@@ -229,7 +229,7 @@ namespace Ymodem.Protocol.Tests
 
             YModemAction.DeliverDataBlock deliver = Assert.IsType<YModemAction.DeliverDataBlock>(Assert.Single(step.Actions));
             Assert.Equal(256, deliver.BlockNumber);
-            Assert.Equal(1024, deliver.DataLength);
+            Assert.Equal(1, deliver.DataLength);
             Assert.Equal(YModemReceiverPhase.WaitingDataBlockDecision, step.Snapshot.Phase);
         }
 

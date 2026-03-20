@@ -60,13 +60,16 @@ namespace Ymodem.Protocol.Tests
         }
 
         [Fact]
-        public void DecodeAbsoluteBlock256FrameInDataPhaseReturnsWrappedDataPacket()
+        public void DecodeBlock256WrappedToZeroInDataPhaseReturnsWrappedDataPacket()
         {
             var encoder = new YModemPacketEncoder();
             var decoder = new YModemPacketDecoder();
             var payload = new byte[] { 0x41, 0x42, 0x43 };
 
             var bytes = encoder.Encode(new YModemPacket.Data(256, payload, payload.Length));
+
+            // Block number is 8-bit on the wire; 256 wraps to 0
+            Assert.Equal(0, bytes[1]);
             YModemPacket packet = decoder.Decode(bytes, isDataPhase: true);
 
             YModemPacket.Data data = Assert.IsType<YModemPacket.Data>(packet);

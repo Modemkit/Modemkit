@@ -31,7 +31,7 @@ namespace Ymodem.Protocol.Tests
         }
 
         [Fact]
-        public void Decode_Block256FrameInDataPhase_ReturnsWrappedDataPacketReceivedEvent()
+        public void Decode_Block256WrappedToZeroInDataPhase_ReturnsWrappedDataPacketReceivedEvent()
         {
             var adapter = new YModemReceiverEventAdapter();
             var encoder = new YModemPacketEncoder();
