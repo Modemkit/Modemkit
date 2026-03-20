@@ -30,7 +30,6 @@ namespace Ymodem.Protocol.Tests
             Assert.Equal("Peer cancelled the transfer.", cancel.Reason);
         }
 
-
         [Fact]
         public void Decode_Block256FrameInDataPhase_ReturnsWrappedDataPacketReceivedEvent()
         {

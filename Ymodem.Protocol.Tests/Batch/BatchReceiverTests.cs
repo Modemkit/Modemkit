@@ -101,7 +101,7 @@ namespace Ymodem.Protocol.Tests
 
             YModemAction.DeliverDataBlock deliver = Assert.IsType<YModemAction.DeliverDataBlock>(Assert.Single(step.Actions));
             Assert.Equal(256, deliver.BlockNumber);
-            Assert.Equal(1, deliver.DataLength);
+            Assert.Equal(1024, deliver.DataLength);
             Assert.Equal(YModemBatchReceiverPhase.WaitingDataBlockDecision, step.Snapshot.Phase);
         }
 

@@ -59,7 +59,6 @@ namespace Ymodem.Protocol.Tests
             Assert.Equal("Packet block number complement is invalid.", exception.Message);
         }
 
-
         [Fact]
         public void DecodeAbsoluteBlock256FrameInDataPhaseReturnsWrappedDataPacket()
         {
@@ -76,6 +75,21 @@ namespace Ymodem.Protocol.Tests
             Assert.Equal(0x41, data.Payload[0]);
             Assert.Equal(0x42, data.Payload[1]);
             Assert.Equal(0x43, data.Payload[2]);
+        }
+
+        [Fact]
+        public void DecodeAbsoluteBlock256FrameWithTamperedCrcInDataPhaseThrowsInvalidOperationException()
+        {
+            var encoder = new YModemPacketEncoder();
+            var decoder = new YModemPacketDecoder();
+            var payload = new byte[] { 0x41, 0x42, 0x43 };
+
+            var bytes = encoder.Encode(new YModemPacket.Data(256, payload, payload.Length));
+            bytes[^1] ^= 0x01;
+
+            InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() => decoder.Decode(bytes, isDataPhase: true));
+
+            Assert.Equal("Packet CRC is invalid.", exception.Message);
         }
 
         [Fact]
