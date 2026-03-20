@@ -41,6 +41,14 @@ namespace Ymodem.Protocol
 
         private static byte[] BuildHeaderFrame(YModemFileDescriptor file)
         {
+            foreach (var ch in file.FileName)
+            {
+                if (ch > 127)
+                {
+                    throw new InvalidOperationException("File name contains non-ASCII characters. Only ASCII file names are supported in YMODEM header packets.");
+                }
+            }
+
             var payload = new byte[128];
             var headerText = file.FileName + "\0" + file.FileSize + "\0";
             var headerBytes = Encoding.ASCII.GetBytes(headerText);
