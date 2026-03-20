@@ -24,6 +24,11 @@ namespace Ymodem.Protocol
         public sealed class Data : YModemPacket
         {
             public Data(int blockNumber, byte[] payload, int dataLength)
+                : this(blockNumber, payload, dataLength, 0)
+            {
+            }
+
+            public Data(int blockNumber, byte[] payload, int dataLength, int blockSize)
             {
                 if (payload == null)
                 {
@@ -40,9 +45,20 @@ namespace Ymodem.Protocol
                     throw new ArgumentOutOfRangeException(nameof(dataLength), "Data length must be within the provided payload buffer.");
                 }
 
+                if (blockSize != 0 && blockSize != 128 && blockSize != 1024)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(blockSize), "Data block size must be 128 or 1024 bytes when specified.");
+                }
+
+                if (blockSize != 0 && dataLength > blockSize)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(dataLength), "Data length must not exceed the block size.");
+                }
+
                 BlockNumber = blockNumber;
                 Payload = payload;
                 DataLength = dataLength;
+                BlockSize = blockSize;
             }
 
             public int BlockNumber
@@ -56,6 +72,11 @@ namespace Ymodem.Protocol
             }
 
             public int DataLength
+            {
+                get;
+            }
+
+            public int BlockSize
             {
                 get;
             }

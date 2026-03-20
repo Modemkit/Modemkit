@@ -67,7 +67,7 @@ namespace Ymodem.Protocol
                 return DecodeBlockZero(payload);
             }
 
-            return new YModemPacket.Data(blockNumber, payload, payload.Length);
+            return new YModemPacket.Data(blockNumber, payload, payload.Length, blockSize);
         }
 
         private static int GetBlockSize(byte startByte, int totalLength)

@@ -13,6 +13,10 @@ namespace Ymodem.Protocol
         private int _nextBlockNumber;
         private bool _lastDataBlockSent;
         private bool _fileHeaderAccepted;
+        private long _remainingFileBytes;
+        private int _lastAcknowledgedDataLength;
+        private int _requestedBlockSize;
+        private bool _hasAcknowledgedFull1KBlock;
         private string? _failureReason;
 
         public YModemSender(int dataBlockSize = 1024)
@@ -155,7 +159,7 @@ namespace Ymodem.Protocol
             }
 
             _phase = YModemSenderPhase.WaitingDataBlock;
-            _actions.Add(new YModemAction.RequestDataBlock(_nextBlockNumber, _dataBlockSize));
+            RequestDataBlock();
         }
 
         private void HandleBlockAck(byte value)
@@ -167,9 +171,11 @@ namespace Ymodem.Protocol
                     _phase = YModemSenderPhase.WaitingFirstEotResponse;
                     return;
                 case YModemControlBytes.Ack:
+                    _remainingFileBytes = Math.Max(0, _remainingFileBytes - _lastAcknowledgedDataLength);
+                    _hasAcknowledgedFull1KBlock = _hasAcknowledgedFull1KBlock || (_dataBlockSize == 1024 && _lastAcknowledgedDataLength == 1024);
                     _nextBlockNumber++;
                     _phase = YModemSenderPhase.WaitingDataBlock;
-                    _actions.Add(new YModemAction.RequestDataBlock(_nextBlockNumber, _dataBlockSize));
+                    RequestDataBlock();
                     return;
                 case YModemControlBytes.Nak:
                     ResendLastPacket("Resend data block");
@@ -247,6 +253,10 @@ namespace Ymodem.Protocol
 
             var packet = new YModemPacket.Header(protocolEvent.File);
             _lastPacket = packet;
+            _remainingFileBytes = protocolEvent.File.FileSize;
+            _lastAcknowledgedDataLength = 0;
+            _requestedBlockSize = 0;
+            _hasAcknowledgedFull1KBlock = false;
             _phase = YModemSenderPhase.WaitingHeaderAck;
             _actions.Add(new YModemAction.SendPacket(packet, "Send file header"));
         }
@@ -265,15 +275,16 @@ namespace Ymodem.Protocol
                 return;
             }
 
-            if (protocolEvent.DataLength > _dataBlockSize)
+            if (protocolEvent.DataLength > _requestedBlockSize)
             {
-                Fault("Data block is larger than the configured packet size.");
+                Fault("Data block is larger than the requested packet size.");
                 return;
             }
 
-            var packet = new YModemPacket.Data(protocolEvent.BlockNumber, protocolEvent.Data, protocolEvent.DataLength);
+            var packet = new YModemPacket.Data(protocolEvent.BlockNumber, protocolEvent.Data, protocolEvent.DataLength, _requestedBlockSize);
             _lastPacket = packet;
             _lastDataBlockSent = protocolEvent.IsLastBlock;
+            _lastAcknowledgedDataLength = protocolEvent.DataLength;
             _phase = YModemSenderPhase.WaitingBlockAck;
             _actions.Add(new YModemAction.SendPacket(packet, protocolEvent.IsLastBlock ? "Send final data block" : "Send data block"));
         }
@@ -290,6 +301,30 @@ namespace Ymodem.Protocol
             var packet = new YModemPacket.BatchTrailer();
             _lastPacket = packet;
             _actions.Add(new YModemAction.SendPacket(packet, "Send batch trailer"));
+        }
+
+        private int GetNextBlockSize()
+        {
+            if (_dataBlockSize == 1024)
+            {
+                if (_remainingFileBytes <= 128)
+                {
+                    return 128;
+                }
+
+                if (_hasAcknowledgedFull1KBlock && _remainingFileBytes < 1024)
+                {
+                    return 128;
+                }
+            }
+
+            return _dataBlockSize;
+        }
+
+        private void RequestDataBlock()
+        {
+            _requestedBlockSize = GetNextBlockSize();
+            _actions.Add(new YModemAction.RequestDataBlock(_nextBlockNumber, _requestedBlockSize));
         }
 
         private void ResendLastPacket(string description)

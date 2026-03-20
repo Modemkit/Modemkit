@@ -26,7 +26,7 @@ namespace Ymodem.Protocol.Tests
             YModemStepResult step4 = sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest));
             YModemAction.RequestDataBlock requestData = Assert.IsType<YModemAction.RequestDataBlock>(Assert.Single(step4.Actions));
             Assert.Equal(1, requestData.BlockNumber);
-            Assert.Equal(1024, requestData.BlockSize);
+            Assert.Equal(128, requestData.BlockSize);
             Assert.Equal(YModemSenderPhase.WaitingDataBlock, step4.Snapshot.Phase);
 
             var payload = new byte[] { 0x41, 0x42, 0x43 };
@@ -96,6 +96,87 @@ namespace Ymodem.Protocol.Tests
             Assert.Equal(256, packet.BlockNumber);
             Assert.Equal(1, packet.DataLength);
             Assert.Equal(0, encodedBytes[1]);
+        }
+
+        [Fact]
+        public void SenderRequests128ByteTailBlockAfterFull1KBlock()
+        {
+            var sender = new YModemSender();
+            var fullPayload = new byte[1024];
+            var tailPayload = new byte[] { 0x41 };
+
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest));
+            sender.Advance(new YModemEvent.FileHeaderReady(new YModemFileDescriptor("tail.bin", 1025)));
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.Ack));
+
+            YModemAction.RequestDataBlock firstRequest = Assert.IsType<YModemAction.RequestDataBlock>(Assert.Single(sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest)).Actions));
+            Assert.Equal(1024, firstRequest.BlockSize);
+
+            sender.Advance(new YModemEvent.DataBlockReady(1, fullPayload, fullPayload.Length, false));
+
+            YModemAction.RequestDataBlock tailRequest = Assert.IsType<YModemAction.RequestDataBlock>(Assert.Single(sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.Ack)).Actions));
+            Assert.Equal(2, tailRequest.BlockNumber);
+            Assert.Equal(128, tailRequest.BlockSize);
+
+            YModemAction.SendPacket sendTail = Assert.IsType<YModemAction.SendPacket>(Assert.Single(sender.Advance(new YModemEvent.DataBlockReady(2, tailPayload, tailPayload.Length, true)).Actions));
+            YModemPacket.Data tailPacket = Assert.IsType<YModemPacket.Data>(sendTail.Packet);
+            Assert.Equal(1, tailPacket.DataLength);
+            Assert.Equal(128 + 5, new YModemPacketEncoder(128).Encode(tailPacket).Length);
+        }
+
+        [Fact]
+        public void SenderRequests128ByteFirstDataBlockForSmallFiles()
+        {
+            var sender = new YModemSender();
+
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest));
+            sender.Advance(new YModemEvent.FileHeaderReady(new YModemFileDescriptor("small.bin", 3)));
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.Ack));
+
+            YModemAction.RequestDataBlock requestData = Assert.IsType<YModemAction.RequestDataBlock>(Assert.Single(sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest)).Actions));
+            Assert.Equal(1, requestData.BlockNumber);
+            Assert.Equal(128, requestData.BlockSize);
+        }
+
+        [Fact]
+        public void SenderRejectsDataLargerThanRequested128ByteBlock()
+        {
+            var sender = new YModemSender();
+            var oversizedPayload = new byte[129];
+
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest));
+            sender.Advance(new YModemEvent.FileHeaderReady(new YModemFileDescriptor("small.bin", 1)));
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.Ack));
+
+            YModemAction.RequestDataBlock requestData = Assert.IsType<YModemAction.RequestDataBlock>(Assert.Single(sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest)).Actions));
+            Assert.Equal(128, requestData.BlockSize);
+
+            YModemStepResult step = sender.Advance(new YModemEvent.DataBlockReady(1, oversizedPayload, oversizedPayload.Length, true));
+            YModemAction.Fail failure = Assert.IsType<YModemAction.Fail>(Assert.Single(step.Actions));
+            Assert.Equal("Data block is larger than the requested packet size.", failure.Reason);
+        }
+
+        [Fact]
+        public void SenderEncodesTailBlockUsingPacketBlockSizeEvenWith1KEncoder()
+        {
+            var sender = new YModemSender();
+            var fullPayload = new byte[1024];
+            var tailPayload = new byte[] { 0x41 };
+
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest));
+            sender.Advance(new YModemEvent.FileHeaderReady(new YModemFileDescriptor("tail.bin", 1025)));
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.Ack));
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest));
+            sender.Advance(new YModemEvent.DataBlockReady(1, fullPayload, fullPayload.Length, false));
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.Ack));
+
+            YModemAction.SendPacket sendTail = Assert.IsType<YModemAction.SendPacket>(Assert.Single(sender.Advance(new YModemEvent.DataBlockReady(2, tailPayload, tailPayload.Length, true)).Actions));
+            YModemPacket.Data tailPacket = Assert.IsType<YModemPacket.Data>(sendTail.Packet);
+            var encodedBytes = new YModemPacketEncoder(1024).Encode(tailPacket);
+
+            Assert.Equal(128, tailPacket.BlockSize);
+            Assert.Equal(YModemControlBytes.Soh, encodedBytes[0]);
+            Assert.Equal(128 + 5, encodedBytes.Length);
         }
 
         [Fact]
