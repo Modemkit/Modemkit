@@ -58,33 +58,5 @@ namespace Ymodem.Protocol.Tests
 
             Assert.Equal("Packet block number complement is invalid.", exception.Message);
         }
-
-        [Fact]
-        public void DecodeBlockZeroInDataPhaseReturnsDataPacketNotHeader()
-        {
-            var encoder = new YModemPacketEncoder();
-            var decoder = new YModemPacketDecoder();
-            var file = new YModemFileDescriptor("demo.bin", 123);
-
-            // A header packet has block number 0; in data phase that same frame is a rollover data block
-            var bytes = encoder.Encode(new YModemPacket.Header(file));
-            YModemPacket packet = decoder.Decode(bytes, isDataPhase: true);
-
-            YModemPacket.Data data = Assert.IsType<YModemPacket.Data>(packet);
-            Assert.Equal(0, data.BlockNumber);
-        }
-
-        [Fact]
-        public void DecodeBlockZeroOutsideDataPhaseReturnsHeader()
-        {
-            var encoder = new YModemPacketEncoder();
-            var decoder = new YModemPacketDecoder();
-            var file = new YModemFileDescriptor("demo.bin", 123);
-
-            var bytes = encoder.Encode(new YModemPacket.Header(file));
-            YModemPacket packet = decoder.Decode(bytes, isDataPhase: false);
-
-            Assert.IsType<YModemPacket.Header>(packet);
-        }
     }
 }

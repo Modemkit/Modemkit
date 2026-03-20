@@ -163,16 +163,13 @@ namespace Ymodem.Protocol
                 return;
             }
 
-            var previousBlockNumber = (_nextBlockNumber - 1) & 0xFF;
-            var expectedBlockNumber = _nextBlockNumber & 0xFF;
-
-            if (data.BlockNumber == previousBlockNumber)
+            if (data.BlockNumber == _nextBlockNumber - 1)
             {
                 _actions.Add(new YModemAction.SendControl(YModemControlBytes.Ack, "Acknowledge repeated data block"));
                 return;
             }
 
-            if (data.BlockNumber != expectedBlockNumber)
+            if (data.BlockNumber != _nextBlockNumber)
             {
                 _actions.Add(new YModemAction.SendControl(YModemControlBytes.Nak, "Reject unexpected data block"));
                 return;

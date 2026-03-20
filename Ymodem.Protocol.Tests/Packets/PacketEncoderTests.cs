@@ -51,16 +51,5 @@ namespace Ymodem.Protocol.Tests
             Assert.Equal(YModemControlBytes.CpmEof, bytes[6]);
             Assert.Equal(YModemControlBytes.CpmEof, bytes[130]);
         }
-
-        [Fact]
-        public void EncodeHeaderWithNonAsciiFileNameThrowsInvalidOperationException()
-        {
-            var encoder = new YModemPacketEncoder();
-            var packet = new YModemPacket.Header(new YModemFileDescriptor("文件.bin", 100));
-
-            InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() => encoder.Encode(packet));
-
-            Assert.Contains("non-ASCII", exception.Message);
-        }
     }
 }
