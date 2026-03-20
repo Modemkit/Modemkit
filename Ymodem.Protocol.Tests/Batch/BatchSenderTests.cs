@@ -40,7 +40,6 @@ namespace Ymodem.Protocol.Tests
             Assert.Equal(0, encodedBytes[1]);
         }
 
-
         [Fact]
         public void BatchSenderRequests128ByteTailBlockAfterFull1KBlock()
         {
@@ -59,6 +58,20 @@ namespace Ymodem.Protocol.Tests
             YModemAction.RequestDataBlock tailRequest = Assert.IsType<YModemAction.RequestDataBlock>(Assert.Single(sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.Ack)).Actions));
             Assert.Equal(2, tailRequest.BlockNumber);
             Assert.Equal(128, tailRequest.BlockSize);
+        }
+
+        [Fact]
+        public void BatchSenderKeepsInitialBlockSizeAt1KForSmallFiles()
+        {
+            var sender = new YModemBatchSender();
+
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest));
+            sender.Advance(new YModemEvent.FileHeaderReady(new YModemFileDescriptor("small.bin", 3)));
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.Ack));
+
+            YModemAction.RequestDataBlock requestData = Assert.IsType<YModemAction.RequestDataBlock>(Assert.Single(sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest)).Actions));
+            Assert.Equal(1, requestData.BlockNumber);
+            Assert.Equal(1024, requestData.BlockSize);
         }
 
         [Fact]

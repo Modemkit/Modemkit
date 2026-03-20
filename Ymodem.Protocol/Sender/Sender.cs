@@ -15,6 +15,7 @@ namespace Ymodem.Protocol
         private bool _fileHeaderAccepted;
         private long _remainingFileBytes;
         private int _lastAcknowledgedDataLength;
+        private bool _shortTailBlockEnabled;
         private string? _failureReason;
 
         public YModemSender(int dataBlockSize = 1024)
@@ -170,6 +171,7 @@ namespace Ymodem.Protocol
                     return;
                 case YModemControlBytes.Ack:
                     _remainingFileBytes = Math.Max(0, _remainingFileBytes - _lastAcknowledgedDataLength);
+                    _shortTailBlockEnabled = _shortTailBlockEnabled || (_dataBlockSize == 1024 && _lastAcknowledgedDataLength == 1024);
                     _nextBlockNumber++;
                     _phase = YModemSenderPhase.WaitingDataBlock;
                     _actions.Add(new YModemAction.RequestDataBlock(_nextBlockNumber, GetNextBlockSize()));
@@ -252,6 +254,7 @@ namespace Ymodem.Protocol
             _lastPacket = packet;
             _remainingFileBytes = protocolEvent.File.FileSize;
             _lastAcknowledgedDataLength = 0;
+            _shortTailBlockEnabled = false;
             _phase = YModemSenderPhase.WaitingHeaderAck;
             _actions.Add(new YModemAction.SendPacket(packet, "Send file header"));
         }
@@ -300,7 +303,7 @@ namespace Ymodem.Protocol
 
         private int GetNextBlockSize()
         {
-            if (_dataBlockSize == 1024 && _remainingFileBytes < 1024)
+            if (_shortTailBlockEnabled && _dataBlockSize == 1024 && _remainingFileBytes < 1024)
             {
                 return 128;
             }
