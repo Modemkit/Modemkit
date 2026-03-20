@@ -5,7 +5,12 @@ namespace Ymodem.Protocol
 {
     public sealed class YModemPacketDecoder
     {
-        public YModemPacket Decode(byte[] bytes, bool isDataPhase = false)
+        public YModemPacket Decode(byte[] bytes)
+        {
+            return Decode(bytes, false);
+        }
+
+        public YModemPacket Decode(byte[] bytes, bool isDataPhase)
         {
             if (bytes == null)
             {

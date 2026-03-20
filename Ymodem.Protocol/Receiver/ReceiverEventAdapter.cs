@@ -16,7 +16,12 @@ namespace Ymodem.Protocol
             _packetDecoder = packetDecoder ?? throw new ArgumentNullException(nameof(packetDecoder));
         }
 
-        public YModemEvent Decode(byte[] bytes, bool isDataPhase = false)
+        public YModemEvent Decode(byte[] bytes)
+        {
+            return Decode(bytes, false);
+        }
+
+        public YModemEvent Decode(byte[] bytes, bool isDataPhase)
         {
             if (bytes == null)
             {
