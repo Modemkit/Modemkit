@@ -58,9 +58,9 @@ namespace Ymodem.Protocol.Tests
         }
 
         [Fact]
-        public void BatchReceiverAcceptsSenderPacketLevelDataPacketAfterBlockNumberWrapsAround()
+        public void BatchReceiverAcceptsSenderPacketWithLogicalBlock256AfterWireWrapAround()
         {
-            const long fileSize = (256L * 1024) + 1;
+            const long fileSize = (255L * 1024) + 1;
             var sender = new YModemBatchSender();
             var receiver = new YModemBatchReceiver();
             var payload = new byte[1024];
@@ -95,21 +95,20 @@ namespace Ymodem.Protocol.Tests
 
             YModemAction.SendPacket sendWrappedData = Assert.IsType<YModemAction.SendPacket>(Assert.Single(sender.Advance(new YModemEvent.DataBlockReady(256, payload, 1, true)).Actions));
             YModemPacket.Data packet = Assert.IsType<YModemPacket.Data>(sendWrappedData.Packet);
-            Assert.Equal(0, packet.BlockNumber);
+            Assert.Equal(256, packet.BlockNumber);
 
             YModemBatchReceiveStepResult step = receiver.Advance(new YModemEvent.PacketReceived(packet));
 
             YModemAction.DeliverDataBlock deliver = Assert.IsType<YModemAction.DeliverDataBlock>(Assert.Single(step.Actions));
-            Assert.Equal(0, deliver.BlockNumber);
-            Assert.Equal(1024, deliver.DataLength);
+            Assert.Equal(256, deliver.BlockNumber);
+            Assert.Equal(1, deliver.DataLength);
             Assert.Equal(YModemBatchReceiverPhase.WaitingDataBlockDecision, step.Snapshot.Phase);
         }
 
         [Fact]
-        public void BatchReceiverAcceptsDataBlockZeroAfterBlockNumberWrapsAround()
+        public void BatchReceiverAcceptsWireBlockZeroAsLogicalBlock256AfterBlockNumberWrapsAround()
         {
-            // A file large enough to require more than 255 data blocks ((256 * 1024) + 1 bytes)
-            const long fileSize = (256L * 1024) + 1;
+            const long fileSize = (255L * 1024) + 1;
             var receiver = new YModemBatchReceiver();
             receiver.Advance(new YModemEvent.StartRequested());
             receiver.Advance(new YModemEvent.PacketReceived(new YModemPacket.Header(new YModemFileDescriptor("large.bin", fileSize))));
@@ -124,11 +123,11 @@ namespace Ymodem.Protocol.Tests
                 receiver.Advance(new YModemEvent.DataBlockAccepted());
             }
 
-            // Block 256 wraps to 0 on the wire; the decoder passes blockNumber=0 in data phase
             YModemBatchReceiveStepResult step = receiver.Advance(new YModemEvent.PacketReceived(new YModemPacket.Data(0, payload, payload.Length)));
 
-            // Receiver must deliver the block rather than NAK-ing it
-            Assert.IsType<YModemAction.DeliverDataBlock>(Assert.Single(step.Actions));
+            YModemAction.DeliverDataBlock deliver = Assert.IsType<YModemAction.DeliverDataBlock>(Assert.Single(step.Actions));
+            Assert.Equal(256, deliver.BlockNumber);
+            Assert.Equal(1, deliver.DataLength);
             Assert.Equal(YModemBatchReceiverPhase.WaitingDataBlockDecision, step.Snapshot.Phase);
         }
 

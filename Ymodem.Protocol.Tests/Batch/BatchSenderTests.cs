@@ -5,7 +5,7 @@ namespace Ymodem.Protocol.Tests
     public sealed class BatchSenderTests
     {
         [Fact]
-        public void BatchSenderWrapsPacketBlockNumberAfterBlock255()
+        public void BatchSenderKeepsLogicalBlockNumberAfterBlock255()
         {
             var sender = new YModemBatchSender();
             var payload = new byte[1024];
@@ -33,9 +33,11 @@ namespace Ymodem.Protocol.Tests
 
             YModemAction.SendPacket sendWrappedData = Assert.IsType<YModemAction.SendPacket>(Assert.Single(sender.Advance(new YModemEvent.DataBlockReady(256, payload, 1, true)).Actions));
             YModemPacket.Data packet = Assert.IsType<YModemPacket.Data>(sendWrappedData.Packet);
+            var encodedBytes = new YModemPacketEncoder().Encode(packet);
 
-            Assert.Equal(0, packet.BlockNumber);
+            Assert.Equal(256, packet.BlockNumber);
             Assert.Equal(1, packet.DataLength);
+            Assert.Equal(0, encodedBytes[1]);
         }
 
         [Fact]
