@@ -40,6 +40,27 @@ namespace Ymodem.Protocol.Tests
             Assert.Equal(0, encodedBytes[1]);
         }
 
+
+        [Fact]
+        public void BatchSenderRequests128ByteTailBlockAfterFull1KBlock()
+        {
+            var sender = new YModemBatchSender();
+            var fullPayload = new byte[1024];
+
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest));
+            sender.Advance(new YModemEvent.FileHeaderReady(new YModemFileDescriptor("tail.bin", 1025)));
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.Ack));
+
+            YModemAction.RequestDataBlock firstRequest = Assert.IsType<YModemAction.RequestDataBlock>(Assert.Single(sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest)).Actions));
+            Assert.Equal(1024, firstRequest.BlockSize);
+
+            sender.Advance(new YModemEvent.DataBlockReady(1, fullPayload, fullPayload.Length, false));
+
+            YModemAction.RequestDataBlock tailRequest = Assert.IsType<YModemAction.RequestDataBlock>(Assert.Single(sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.Ack)).Actions));
+            Assert.Equal(2, tailRequest.BlockNumber);
+            Assert.Equal(128, tailRequest.BlockSize);
+        }
+
         [Fact]
         public void BatchSenderCompletesTwoFileBatchAndTrailer()
         {

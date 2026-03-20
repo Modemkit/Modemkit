@@ -13,6 +13,8 @@ namespace Ymodem.Protocol
         private int _nextBlockNumber;
         private bool _lastDataBlockSent;
         private bool _fileHeaderAccepted;
+        private long _remainingFileBytes;
+        private int _lastAcknowledgedDataLength;
         private string? _failureReason;
 
         public YModemSender(int dataBlockSize = 1024)
@@ -155,7 +157,7 @@ namespace Ymodem.Protocol
             }
 
             _phase = YModemSenderPhase.WaitingDataBlock;
-            _actions.Add(new YModemAction.RequestDataBlock(_nextBlockNumber, _dataBlockSize));
+            _actions.Add(new YModemAction.RequestDataBlock(_nextBlockNumber, GetNextBlockSize()));
         }
 
         private void HandleBlockAck(byte value)
@@ -167,9 +169,10 @@ namespace Ymodem.Protocol
                     _phase = YModemSenderPhase.WaitingFirstEotResponse;
                     return;
                 case YModemControlBytes.Ack:
+                    _remainingFileBytes = Math.Max(0, _remainingFileBytes - _lastAcknowledgedDataLength);
                     _nextBlockNumber++;
                     _phase = YModemSenderPhase.WaitingDataBlock;
-                    _actions.Add(new YModemAction.RequestDataBlock(_nextBlockNumber, _dataBlockSize));
+                    _actions.Add(new YModemAction.RequestDataBlock(_nextBlockNumber, GetNextBlockSize()));
                     return;
                 case YModemControlBytes.Nak:
                     ResendLastPacket("Resend data block");
@@ -247,6 +250,8 @@ namespace Ymodem.Protocol
 
             var packet = new YModemPacket.Header(protocolEvent.File);
             _lastPacket = packet;
+            _remainingFileBytes = protocolEvent.File.FileSize;
+            _lastAcknowledgedDataLength = 0;
             _phase = YModemSenderPhase.WaitingHeaderAck;
             _actions.Add(new YModemAction.SendPacket(packet, "Send file header"));
         }
@@ -274,6 +279,7 @@ namespace Ymodem.Protocol
             var packet = new YModemPacket.Data(protocolEvent.BlockNumber, protocolEvent.Data, protocolEvent.DataLength);
             _lastPacket = packet;
             _lastDataBlockSent = protocolEvent.IsLastBlock;
+            _lastAcknowledgedDataLength = protocolEvent.DataLength;
             _phase = YModemSenderPhase.WaitingBlockAck;
             _actions.Add(new YModemAction.SendPacket(packet, protocolEvent.IsLastBlock ? "Send final data block" : "Send data block"));
         }
@@ -290,6 +296,16 @@ namespace Ymodem.Protocol
             var packet = new YModemPacket.BatchTrailer();
             _lastPacket = packet;
             _actions.Add(new YModemAction.SendPacket(packet, "Send batch trailer"));
+        }
+
+        private int GetNextBlockSize()
+        {
+            if (_dataBlockSize == 1024 && _remainingFileBytes < 1024)
+            {
+                return 128;
+            }
+
+            return _dataBlockSize;
         }
 
         private void ResendLastPacket(string description)
