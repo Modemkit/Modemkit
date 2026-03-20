@@ -5,6 +5,42 @@ namespace Ymodem.Protocol.Tests
     public sealed class BatchSenderTests
     {
         [Fact]
+        public void BatchSenderKeepsLogicalBlockNumberAfterBlock255()
+        {
+            var sender = new YModemBatchSender();
+            var payload = new byte[1024];
+
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest));
+            sender.Advance(new YModemEvent.FileHeaderReady(new YModemFileDescriptor("large.bin", (256L * 1024) + 1)));
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.Ack));
+
+            YModemAction.RequestDataBlock requestData = Assert.IsType<YModemAction.RequestDataBlock>(Assert.Single(sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest)).Actions));
+            Assert.Equal(1, requestData.BlockNumber);
+
+            for (var i = 1; i <= 255; i++)
+            {
+                Assert.IsType<YModemAction.SendPacket>(Assert.Single(sender.Advance(new YModemEvent.DataBlockReady(i, payload, payload.Length, false)).Actions));
+
+                if (i < 255)
+                {
+                    requestData = Assert.IsType<YModemAction.RequestDataBlock>(Assert.Single(sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.Ack)).Actions));
+                    Assert.Equal(i + 1, requestData.BlockNumber);
+                }
+            }
+
+            requestData = Assert.IsType<YModemAction.RequestDataBlock>(Assert.Single(sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.Ack)).Actions));
+            Assert.Equal(256, requestData.BlockNumber);
+
+            YModemAction.SendPacket sendWrappedData = Assert.IsType<YModemAction.SendPacket>(Assert.Single(sender.Advance(new YModemEvent.DataBlockReady(256, payload, 1, true)).Actions));
+            YModemPacket.Data packet = Assert.IsType<YModemPacket.Data>(sendWrappedData.Packet);
+            var encodedBytes = new YModemPacketEncoder().Encode(packet);
+
+            Assert.Equal(256, packet.BlockNumber);
+            Assert.Equal(1, packet.DataLength);
+            Assert.Equal(0, encodedBytes[1]);
+        }
+
+        [Fact]
         public void BatchSenderCompletesTwoFileBatchAndTrailer()
         {
             var sender = new YModemBatchSender();
