@@ -53,6 +53,18 @@ namespace Ymodem.Protocol.Tests
         }
 
         [Fact]
+        public void EncoderUsesPacketBlockSizeWhenEncodingDataFrames()
+        {
+            var encoder = new YModemPacketEncoder(1024);
+            var packet = new YModemPacket.Data(1, new byte[128], 3, 128);
+
+            var bytes = encoder.Encode(packet);
+
+            Assert.Equal(YModemControlBytes.Soh, bytes[0]);
+            Assert.Equal(128 + 5, bytes.Length);
+        }
+
+        [Fact]
         public void EncodeHeaderWithNonAsciiFileNameThrowsInvalidOperationException()
         {
             var encoder = new YModemPacketEncoder();

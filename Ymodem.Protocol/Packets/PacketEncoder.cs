@@ -29,7 +29,7 @@ namespace Ymodem.Protocol
                 case YModemPacket.Header header:
                     return BuildHeaderFrame(header.File);
                 case YModemPacket.Data data:
-                    return BuildDataFrame(data.BlockNumber, data.Payload, data.DataLength, _dataBlockSize);
+                    return BuildDataFrame(data.BlockNumber, data.Payload, data.DataLength, data.BlockSize == 0 ? _dataBlockSize : data.BlockSize);
                 case YModemPacket.Eot _:
                     return new[] { YModemControlBytes.Eot };
                 case YModemPacket.BatchTrailer _:

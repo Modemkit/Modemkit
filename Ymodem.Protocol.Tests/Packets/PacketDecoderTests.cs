@@ -93,6 +93,23 @@ namespace Ymodem.Protocol.Tests
         }
 
         [Fact]
+        public void DecoderPreservesDataBlockSizeFromFrame()
+        {
+            var encoder = new YModemPacketEncoder(128);
+            var decoder = new YModemPacketDecoder();
+            var payload = new byte[128];
+            payload[0] = 0x41;
+            payload[1] = 0x42;
+            payload[2] = 0x43;
+
+            var bytes = encoder.Encode(new YModemPacket.Data(1, payload, 3, 128));
+            var packet = Assert.IsType<YModemPacket.Data>(decoder.Decode(bytes, isDataPhase: true));
+
+            Assert.Equal(128, packet.BlockSize);
+            Assert.Equal(128, packet.Payload.Length);
+        }
+
+        [Fact]
         public void DecodeBlockZeroInDataPhaseReturnsDataPacketNotHeader()
         {
             var encoder = new YModemPacketEncoder();

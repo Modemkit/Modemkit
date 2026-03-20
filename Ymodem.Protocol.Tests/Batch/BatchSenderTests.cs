@@ -75,6 +75,47 @@ namespace Ymodem.Protocol.Tests
         }
 
         [Fact]
+        public void BatchSenderRejectsDataLargerThanRequested128ByteBlock()
+        {
+            var sender = new YModemBatchSender();
+            var oversizedPayload = new byte[129];
+
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest));
+            sender.Advance(new YModemEvent.FileHeaderReady(new YModemFileDescriptor("small.bin", 1)));
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.Ack));
+
+            YModemAction.RequestDataBlock requestData = Assert.IsType<YModemAction.RequestDataBlock>(Assert.Single(sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest)).Actions));
+            Assert.Equal(128, requestData.BlockSize);
+
+            YModemBatchStepResult step = sender.Advance(new YModemEvent.DataBlockReady(1, oversizedPayload, oversizedPayload.Length, true));
+            YModemAction.Fail failure = Assert.IsType<YModemAction.Fail>(Assert.Single(step.Actions));
+            Assert.Equal("Data block is larger than the requested packet size.", failure.Reason);
+        }
+
+        [Fact]
+        public void BatchSenderEncodesTailBlockUsingPacketBlockSizeEvenWith1KEncoder()
+        {
+            var sender = new YModemBatchSender();
+            var fullPayload = new byte[1024];
+            var tailPayload = new byte[] { 0x41 };
+
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest));
+            sender.Advance(new YModemEvent.FileHeaderReady(new YModemFileDescriptor("tail.bin", 1025)));
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.Ack));
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest));
+            sender.Advance(new YModemEvent.DataBlockReady(1, fullPayload, fullPayload.Length, false));
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.Ack));
+
+            YModemAction.SendPacket sendTail = Assert.IsType<YModemAction.SendPacket>(Assert.Single(sender.Advance(new YModemEvent.DataBlockReady(2, tailPayload, tailPayload.Length, true)).Actions));
+            YModemPacket.Data tailPacket = Assert.IsType<YModemPacket.Data>(sendTail.Packet);
+            var encodedBytes = new YModemPacketEncoder(1024).Encode(tailPacket);
+
+            Assert.Equal(128, tailPacket.BlockSize);
+            Assert.Equal(YModemControlBytes.Soh, encodedBytes[0]);
+            Assert.Equal(128 + 5, encodedBytes.Length);
+        }
+
+        [Fact]
         public void BatchSenderCompletesTwoFileBatchAndTrailer()
         {
             var sender = new YModemBatchSender();
