@@ -186,6 +186,78 @@ namespace Ymodem.Protocol.Tests
         }
 
         [Fact]
+        public void ReceiverAcceptsSenderPacketLevelDataPacketAfterBlockNumberWrapsAround()
+        {
+            const long fileSize = (256L * 1024) + 1;
+            var sender = new YModemSender();
+            var receiver = new YModemReceiver();
+            var payload = new byte[1024];
+
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest));
+            receiver.Advance(new YModemEvent.StartRequested());
+
+            var file = new YModemFileDescriptor("large.bin", fileSize);
+            YModemAction.SendPacket sendHeader = Assert.IsType<YModemAction.SendPacket>(Assert.Single(sender.Advance(new YModemEvent.FileHeaderReady(file)).Actions));
+            receiver.Advance(new YModemEvent.PacketReceived(sendHeader.Packet));
+            receiver.Advance(new YModemEvent.FileHeaderAccepted());
+
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.Ack));
+            YModemAction.RequestDataBlock requestData = Assert.IsType<YModemAction.RequestDataBlock>(Assert.Single(sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest)).Actions));
+            Assert.Equal(1, requestData.BlockNumber);
+
+            for (var i = 1; i <= 255; i++)
+            {
+                YModemAction.SendPacket sendData = Assert.IsType<YModemAction.SendPacket>(Assert.Single(sender.Advance(new YModemEvent.DataBlockReady(i, payload, payload.Length, false)).Actions));
+                receiver.Advance(new YModemEvent.PacketReceived(sendData.Packet));
+                receiver.Advance(new YModemEvent.DataBlockAccepted());
+
+                if (i < 255)
+                {
+                    requestData = Assert.IsType<YModemAction.RequestDataBlock>(Assert.Single(sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.Ack)).Actions));
+                    Assert.Equal(i + 1, requestData.BlockNumber);
+                }
+            }
+
+            YModemAction.RequestDataBlock requestWrappedBlock = Assert.IsType<YModemAction.RequestDataBlock>(Assert.Single(sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.Ack)).Actions));
+            Assert.Equal(256, requestWrappedBlock.BlockNumber);
+
+            YModemAction.SendPacket sendWrappedData = Assert.IsType<YModemAction.SendPacket>(Assert.Single(sender.Advance(new YModemEvent.DataBlockReady(256, payload, 1, true)).Actions));
+            YModemPacket.Data packet = Assert.IsType<YModemPacket.Data>(sendWrappedData.Packet);
+            Assert.Equal(256, packet.BlockNumber);
+
+            YModemReceiveStepResult step = receiver.Advance(new YModemEvent.PacketReceived(packet));
+
+            YModemAction.DeliverDataBlock deliver = Assert.IsType<YModemAction.DeliverDataBlock>(Assert.Single(step.Actions));
+            Assert.Equal(256, deliver.BlockNumber);
+            Assert.Equal(1, deliver.DataLength);
+            Assert.Equal(YModemReceiverPhase.WaitingDataBlockDecision, step.Snapshot.Phase);
+        }
+
+        [Fact]
+        public void ReceiverAcceptsAbsoluteBlockNumberAfterBlockNumberWrapsAround()
+        {
+            const long fileSize = (256L * 1024) + 1;
+            var receiver = new YModemReceiver();
+            receiver.Advance(new YModemEvent.StartRequested());
+            receiver.Advance(new YModemEvent.PacketReceived(new YModemPacket.Header(new YModemFileDescriptor("large.bin", fileSize))));
+            receiver.Advance(new YModemEvent.FileHeaderAccepted());
+
+            var payload = new byte[1024];
+
+            for (var i = 1; i <= 255; i++)
+            {
+                receiver.Advance(new YModemEvent.PacketReceived(new YModemPacket.Data(i, payload, payload.Length)));
+                receiver.Advance(new YModemEvent.DataBlockAccepted());
+            }
+
+            YModemReceiveStepResult step = receiver.Advance(new YModemEvent.PacketReceived(new YModemPacket.Data(256, payload, payload.Length)));
+
+            YModemAction.DeliverDataBlock deliver = Assert.IsType<YModemAction.DeliverDataBlock>(Assert.Single(step.Actions));
+            Assert.Equal(256, deliver.BlockNumber);
+            Assert.Equal(YModemReceiverPhase.WaitingDataBlockDecision, step.Snapshot.Phase);
+        }
+
+        [Fact]
         public void ReceiverAcceptsDataBlockZeroAfterBlockNumberWrapsAround()
         {
             // A file large enough to require more than 255 data blocks ((256 * 1024) + 1 bytes)
