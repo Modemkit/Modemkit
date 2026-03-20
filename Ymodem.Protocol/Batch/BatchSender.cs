@@ -15,7 +15,6 @@ namespace Ymodem.Protocol
         private long _remainingFileBytes;
         private int _lastAcknowledgedDataLength;
         private int _requestedBlockSize;
-        private bool _hasAcknowledgedFull1KBlock;
         private string? _failureReason;
 
         public YModemBatchSender(int dataBlockSize = 1024)
@@ -126,7 +125,6 @@ namespace Ymodem.Protocol
                         }
 
                         _remainingFileBytes = Math.Max(0, _remainingFileBytes - _lastAcknowledgedDataLength);
-                        _hasAcknowledgedFull1KBlock = _hasAcknowledgedFull1KBlock || (_dataBlockSize == 1024 && _lastAcknowledgedDataLength == 1024);
                         _nextBlockNumber++;
                         _phase = YModemBatchSenderPhase.WaitingDataBlock;
                         RequestDataBlock();
@@ -212,7 +210,6 @@ namespace Ymodem.Protocol
             _remainingFileBytes = protocolEvent.File.FileSize;
             _lastAcknowledgedDataLength = 0;
             _requestedBlockSize = 0;
-            _hasAcknowledgedFull1KBlock = false;
             _nextBlockNumber = 1;
             _phase = YModemBatchSenderPhase.WaitingHeaderAck;
             _actions.Add(new YModemAction.SendPacket(packet, "Send file header"));
@@ -276,10 +273,6 @@ namespace Ymodem.Protocol
                     return 128;
                 }
 
-                if (_hasAcknowledgedFull1KBlock && _remainingFileBytes < 1024)
-                {
-                    return 128;
-                }
             }
 
             return _dataBlockSize;
