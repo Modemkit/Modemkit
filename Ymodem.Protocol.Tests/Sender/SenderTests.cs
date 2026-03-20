@@ -124,6 +124,37 @@ namespace Ymodem.Protocol.Tests
             Assert.Equal(128 + 5, new YModemPacketEncoder(128).Encode(tailPacket).Length);
         }
 
+
+        [Fact]
+        public void SenderUses1KPacketForTailLargerThan128Bytes()
+        {
+            var sender = new YModemSender();
+            var fullPayload = new byte[1024];
+            var tailPayload = new byte[1024];
+
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest));
+            sender.Advance(new YModemEvent.FileHeaderReady(new YModemFileDescriptor("tail.bin", 1537)));
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.Ack));
+
+            YModemAction.RequestDataBlock firstRequest = Assert.IsType<YModemAction.RequestDataBlock>(Assert.Single(sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest)).Actions));
+            Assert.Equal(1024, firstRequest.BlockSize);
+
+            sender.Advance(new YModemEvent.DataBlockReady(1, fullPayload, fullPayload.Length, false));
+
+            YModemAction.RequestDataBlock tailRequest = Assert.IsType<YModemAction.RequestDataBlock>(Assert.Single(sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.Ack)).Actions));
+            Assert.Equal(2, tailRequest.BlockNumber);
+            Assert.Equal(1024, tailRequest.BlockSize);
+
+            YModemAction.SendPacket sendTail = Assert.IsType<YModemAction.SendPacket>(Assert.Single(sender.Advance(new YModemEvent.DataBlockReady(2, tailPayload, 513, true)).Actions));
+            YModemPacket.Data tailPacket = Assert.IsType<YModemPacket.Data>(sendTail.Packet);
+            var encodedBytes = new YModemPacketEncoder(1024).Encode(tailPacket);
+
+            Assert.Equal(1024, tailPacket.BlockSize);
+            Assert.Equal(513, tailPacket.DataLength);
+            Assert.Equal(YModemControlBytes.Stx, encodedBytes[0]);
+            Assert.Equal(1024 + 5, encodedBytes.Length);
+        }
+
         [Fact]
         public void SenderRequests128ByteFirstDataBlockForSmallFiles()
         {
