@@ -50,11 +50,6 @@ namespace Ymodem.Protocol
                     throw new ArgumentOutOfRangeException(nameof(blockSize), "Data block size must be 128 or 1024 bytes when specified.");
                 }
 
-                if (blockSize != 0 && payload.Length < blockSize)
-                {
-                    throw new ArgumentException("Payload buffer must be at least as large as the block size.", nameof(payload));
-                }
-
                 if (blockSize != 0 && dataLength > blockSize)
                 {
                     throw new ArgumentOutOfRangeException(nameof(dataLength), "Data length must not exceed the block size.");
