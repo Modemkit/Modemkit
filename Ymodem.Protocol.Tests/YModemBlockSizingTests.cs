@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 
 namespace Ymodem.Protocol.Tests
 {
@@ -49,5 +50,28 @@ namespace Ymodem.Protocol.Tests
 
             Assert.Equal(expectedBlockSize, blockSize);
         }
+
+        [Fact]
+        public void BuildHeaderMetadataUsesInvariantCultureForFileSize()
+        {
+            var originalCulture = CultureInfo.CurrentCulture;
+            var originalUiCulture = CultureInfo.CurrentUICulture;
+
+            try
+            {
+                CultureInfo.CurrentCulture = new CultureInfo("ar-SA");
+                CultureInfo.CurrentUICulture = new CultureInfo("ar-SA");
+
+                var metadata = YModemBlockSizing.BuildHeaderMetadata(new YModemFileDescriptor("demo.bin", 123));
+
+                Assert.Equal("demo.bin\0123\0", metadata);
+            }
+            finally
+            {
+                CultureInfo.CurrentCulture = originalCulture;
+                CultureInfo.CurrentUICulture = originalUiCulture;
+            }
+        }
+
     }
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Text;
 
 namespace Ymodem.Protocol
@@ -34,10 +35,20 @@ namespace Ymodem.Protocol
                 throw new ArgumentNullException(nameof(file));
             }
 
-            var headerLength = Encoding.ASCII.GetByteCount(file.FileName + "\0" + file.FileSize + "\0");
+            var headerLength = Encoding.ASCII.GetByteCount(BuildHeaderMetadata(file));
             return configuredDataBlockSize == SohPayloadSize
                 ? SohPayloadSize
                 : GetBlockSizeForPayloadLength(headerLength);
+        }
+
+        internal static string BuildHeaderMetadata(YModemFileDescriptor file)
+        {
+            if (file == null)
+            {
+                throw new ArgumentNullException(nameof(file));
+            }
+
+            return file.FileName + "\0" + file.FileSize.ToString(CultureInfo.InvariantCulture) + "\0";
         }
 
         // Dynamic 1K mode uses a single payload-capacity rule:

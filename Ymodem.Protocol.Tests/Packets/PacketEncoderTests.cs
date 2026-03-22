@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 
 namespace Ymodem.Protocol.Tests
@@ -176,5 +177,34 @@ namespace Ymodem.Protocol.Tests
 
             Assert.Contains("selected header block size of 1024 bytes", exception.Message);
         }
+
+        [Fact]
+        public void EncodeHeaderUsesInvariantCultureForFileSize()
+        {
+            var originalCulture = CultureInfo.CurrentCulture;
+            var originalUiCulture = CultureInfo.CurrentUICulture;
+
+            try
+            {
+                CultureInfo.CurrentCulture = new CultureInfo("ar-SA");
+                CultureInfo.CurrentUICulture = new CultureInfo("ar-SA");
+
+                var encoder = new YModemPacketEncoder();
+                var packet = new YModemPacket.Header(new YModemFileDescriptor("demo.bin", 123));
+
+                var bytes = encoder.Encode(packet);
+                var payload = new byte[128];
+                Buffer.BlockCopy(bytes, 3, payload, 0, payload.Length);
+                var prefix = Encoding.ASCII.GetString(payload, 0, "demo.bin\0123\0".Length);
+
+                Assert.Equal("demo.bin\0123\0", prefix);
+            }
+            finally
+            {
+                CultureInfo.CurrentCulture = originalCulture;
+                CultureInfo.CurrentUICulture = originalUiCulture;
+            }
+        }
+
     }
 }
