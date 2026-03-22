@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
+    <ProtocolUnderTestTargetFramework></ProtocolUnderTestTargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
@@ -14,8 +15,13 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
   </ItemGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(ProtocolUnderTestTargetFramework)' == ''">
     <ProjectReference Include="..\Ymodem.Protocol\Ymodem.Protocol.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(ProtocolUnderTestTargetFramework)' != ''">
+    <ProjectReference Include="..\Ymodem.Protocol\Ymodem.Protocol.csproj"
+                      SetTargetFramework="TargetFramework=$(ProtocolUnderTestTargetFramework)" />
   </ItemGroup>
 
   <ItemGroup>

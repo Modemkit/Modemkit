@@ -1,5 +1,4 @@
 <Solution>
-  <Project Path="Ymodem.Protocol.NetStandard.Tests/Ymodem.Protocol.NetStandard.Tests.csproj" />
   <Project Path="Ymodem.Protocol.Tests/Ymodem.Protocol.Tests.csproj" />
   <Project Path="Ymodem.Protocol/Ymodem.Protocol.csproj" />
 </Solution>
