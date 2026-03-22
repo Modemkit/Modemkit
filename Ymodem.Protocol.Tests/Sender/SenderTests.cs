@@ -405,7 +405,7 @@ namespace Ymodem.Protocol.Tests
         [Fact]
         public void SenderBlockOptionsCanForce1KHeaderAndDataBlocks()
         {
-            var sender = new YModemSender(new YModemBlockOptions(YModemBlockMode.Fixed1K, YModemBlockMode.Fixed1K));
+            var sender = new YModemSender(new YModemBlockOptions(YModemBlockMode.Fixed1K, true, true));
             var file = new YModemFileDescriptor("demo.bin", 3);
 
             sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest));

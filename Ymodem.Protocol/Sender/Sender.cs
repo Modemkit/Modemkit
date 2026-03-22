@@ -254,7 +254,7 @@ namespace Ymodem.Protocol
                 return;
             }
 
-            var packet = new YModemPacket.Header(protocolEvent.File, YModemBlockSizing.GetHeaderBlockSize(_blockOptions.Block0Mode, protocolEvent.File));
+            var packet = new YModemPacket.Header(protocolEvent.File, YModemBlockSizing.GetHeaderBlockSize(_blockOptions, protocolEvent.File));
             _lastPacket = packet;
             _remainingFileBytes = protocolEvent.File.FileSize;
             _lastAcknowledgedDataLength = 0;
@@ -307,7 +307,7 @@ namespace Ymodem.Protocol
 
         private int GetNextBlockSize()
         {
-            return YModemBlockSizing.GetDataBlockSize(_blockOptions.DataBlockMode, _remainingFileBytes);
+            return YModemBlockSizing.GetDataBlockSize(_blockOptions, _remainingFileBytes);
         }
 
         private void RequestDataBlock()

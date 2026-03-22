@@ -338,7 +338,7 @@ namespace Ymodem.Protocol.Tests
         [Fact]
         public void BatchSenderBlockOptionsCanForce1KHeaderAndDataBlocks()
         {
-            var sender = new YModemBatchSender(new YModemBlockOptions(YModemBlockMode.Fixed1K, YModemBlockMode.Fixed1K));
+            var sender = new YModemBatchSender(new YModemBlockOptions(YModemBlockMode.Fixed1K, true, true));
             var file = new YModemFileDescriptor("demo.bin", 3);
 
             sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest));

@@ -37,26 +37,30 @@ namespace Ymodem.Protocol.Tests
         }
 
         [Theory]
-        [InlineData(YModemBlockMode.Fixed128, 1, 128)]
-        [InlineData(YModemBlockMode.Dynamic1K, 1, 128)]
-        [InlineData(YModemBlockMode.Fixed1K, 1, 1024)]
-        public void GetDataBlockSizeUsesSelectedBlockMode(YModemBlockMode blockMode, long remainingBytes, int expectedBlockSize)
+        [InlineData(YModemBlockMode.Fixed128, true, 1, 128)]
+        [InlineData(YModemBlockMode.Dynamic1K, true, 1, 128)]
+        [InlineData(YModemBlockMode.Fixed1K, true, 1, 1024)]
+        [InlineData(YModemBlockMode.Fixed1K, false, 1, 128)]
+        [InlineData(YModemBlockMode.Fixed1K, false, 129, 1024)]
+        public void GetDataBlockSizeUsesSelectedBlockMode(YModemBlockMode blockMode, bool use1KFinalDataBlock, long remainingBytes, int expectedBlockSize)
         {
-            var blockSize = YModemBlockSizing.GetDataBlockSize(blockMode, remainingBytes);
+            var blockSize = YModemBlockSizing.GetDataBlockSize(new YModemBlockOptions(blockMode, true, use1KFinalDataBlock), remainingBytes);
 
             Assert.Equal(expectedBlockSize, blockSize);
         }
 
         [Theory]
-        [InlineData(YModemBlockMode.Fixed128, 119, 128)]
-        [InlineData(YModemBlockMode.Dynamic1K, 119, 128)]
-        [InlineData(YModemBlockMode.Dynamic1K, 120, 1024)]
-        [InlineData(YModemBlockMode.Fixed1K, 119, 1024)]
-        public void GetHeaderBlockSizeUsesSelectedBlockMode(YModemBlockMode blockMode, int fileNameLength, int expectedBlockSize)
+        [InlineData(YModemBlockMode.Fixed128, true, 119, 128)]
+        [InlineData(YModemBlockMode.Dynamic1K, true, 119, 128)]
+        [InlineData(YModemBlockMode.Dynamic1K, true, 120, 1024)]
+        [InlineData(YModemBlockMode.Fixed1K, true, 119, 1024)]
+        [InlineData(YModemBlockMode.Fixed1K, false, 119, 128)]
+        [InlineData(YModemBlockMode.Fixed1K, false, 120, 1024)]
+        public void GetHeaderBlockSizeUsesSelectedBlockMode(YModemBlockMode blockMode, bool use1KBlock0, int fileNameLength, int expectedBlockSize)
         {
             var file = new YModemFileDescriptor(new string('a', fileNameLength) + ".bin", 123);
 
-            var blockSize = YModemBlockSizing.GetHeaderBlockSize(blockMode, file);
+            var blockSize = YModemBlockSizing.GetHeaderBlockSize(new YModemBlockOptions(blockMode, use1KBlock0, true), file);
 
             Assert.Equal(expectedBlockSize, blockSize);
         }

@@ -3,29 +3,40 @@ namespace Ymodem.Protocol
     public sealed class YModemBlockOptions
     {
         public YModemBlockOptions()
-            : this(YModemBlockMode.Dynamic1K, YModemBlockMode.Dynamic1K)
+            : this(YModemBlockMode.Dynamic1K)
         {
         }
 
-        public YModemBlockOptions(YModemBlockMode block0Mode, YModemBlockMode dataBlockMode)
+        public YModemBlockOptions(YModemBlockMode mode)
+            : this(mode, true, true)
         {
-            Block0Mode = block0Mode;
-            DataBlockMode = dataBlockMode;
         }
 
-        public YModemBlockMode Block0Mode
+        public YModemBlockOptions(YModemBlockMode mode, bool use1KBlock0, bool use1KFinalDataBlock)
+        {
+            Mode = mode;
+            Use1KBlock0 = use1KBlock0;
+            Use1KFinalDataBlock = use1KFinalDataBlock;
+        }
+
+        public YModemBlockMode Mode
         {
             get;
         }
 
-        public YModemBlockMode DataBlockMode
+        public bool Use1KBlock0
+        {
+            get;
+        }
+
+        public bool Use1KFinalDataBlock
         {
             get;
         }
 
         public static YModemBlockOptions FromMode(YModemBlockMode blockMode)
         {
-            return new YModemBlockOptions(blockMode, blockMode);
+            return new YModemBlockOptions(blockMode);
         }
     }
 }

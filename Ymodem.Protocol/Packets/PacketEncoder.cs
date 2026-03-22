@@ -34,7 +34,7 @@ namespace Ymodem.Protocol
                 case YModemPacket.Header header:
                     return BuildHeaderFrame(header.File, header.BlockSize);
                 case YModemPacket.Data data:
-                    return BuildDataFrame(data.BlockNumber, data.Payload, data.DataLength, data.BlockSize == 0 ? YModemBlockSizing.GetConfiguredBlockSize(_blockOptions.DataBlockMode) : data.BlockSize);
+                    return BuildDataFrame(data.BlockNumber, data.Payload, data.DataLength, data.BlockSize == 0 ? YModemBlockSizing.GetConfiguredBlockSize(_blockOptions.Mode) : data.BlockSize);
                 case YModemPacket.Eot _:
                     return new[] { YModemControlBytes.Eot };
                 case YModemPacket.BatchTrailer _:
@@ -57,7 +57,7 @@ namespace Ymodem.Protocol
             var headerText = YModemBlockSizing.BuildHeaderMetadata(file);
             var headerBytes = Encoding.ASCII.GetBytes(headerText);
             var resolvedBlockSize = blockSize == 0
-                ? YModemBlockSizing.GetHeaderBlockSize(_blockOptions.Block0Mode, file)
+                ? YModemBlockSizing.GetHeaderBlockSize(_blockOptions, file)
                 : blockSize;
             var payload = new byte[resolvedBlockSize];
 

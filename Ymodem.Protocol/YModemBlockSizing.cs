@@ -16,7 +16,6 @@ namespace Ymodem.Protocol
                 case YModemBlockMode.Fixed128:
                     return SohPayloadSize;
                 case YModemBlockMode.Dynamic1K:
-                    return StxPayloadSize;
                 case YModemBlockMode.Fixed1K:
                     return StxPayloadSize;
                 default:
@@ -24,40 +23,51 @@ namespace Ymodem.Protocol
             }
         }
 
-        public static int GetDataBlockSize(YModemBlockMode blockMode, long remainingFileBytes)
+        public static int GetDataBlockSize(YModemBlockOptions blockOptions, long remainingFileBytes)
         {
-            switch (blockMode)
+            if (blockOptions == null)
+            {
+                throw new ArgumentNullException(nameof(blockOptions));
+            }
+
+            switch (blockOptions.Mode)
             {
                 case YModemBlockMode.Fixed128:
                     return SohPayloadSize;
                 case YModemBlockMode.Dynamic1K:
                     return GetBlockSizeForPayloadLength(remainingFileBytes);
                 case YModemBlockMode.Fixed1K:
-                    return StxPayloadSize;
+                    return blockOptions.Use1KFinalDataBlock || remainingFileBytes > SohPayloadSize
+                        ? StxPayloadSize
+                        : SohPayloadSize;
                 default:
-                    throw new ArgumentOutOfRangeException(nameof(blockMode), "Unsupported YMODEM block mode.");
+                    throw new ArgumentOutOfRangeException(nameof(blockOptions), "Unsupported YMODEM block mode.");
             }
         }
 
-        // Block 0 uses the selected block mode and dynamic capacity rule when requested.
-        public static int GetHeaderBlockSize(YModemBlockMode blockMode, YModemFileDescriptor file)
+        public static int GetHeaderBlockSize(YModemBlockOptions blockOptions, YModemFileDescriptor file)
         {
+            if (blockOptions == null)
+            {
+                throw new ArgumentNullException(nameof(blockOptions));
+            }
+
             if (file == null)
             {
                 throw new ArgumentNullException(nameof(file));
             }
 
             var headerLength = Encoding.ASCII.GetByteCount(BuildHeaderMetadata(file));
-            switch (blockMode)
+            switch (blockOptions.Mode)
             {
                 case YModemBlockMode.Fixed128:
                     return SohPayloadSize;
                 case YModemBlockMode.Dynamic1K:
                     return GetBlockSizeForPayloadLength(headerLength);
                 case YModemBlockMode.Fixed1K:
-                    return StxPayloadSize;
+                    return blockOptions.Use1KBlock0 ? StxPayloadSize : GetBlockSizeForPayloadLength(headerLength);
                 default:
-                    throw new ArgumentOutOfRangeException(nameof(blockMode), "Unsupported YMODEM block mode.");
+                    throw new ArgumentOutOfRangeException(nameof(blockOptions), "Unsupported YMODEM block mode.");
             }
         }
 
@@ -71,8 +81,6 @@ namespace Ymodem.Protocol
             return file.FileName + "\0" + file.FileSize.ToString(CultureInfo.InvariantCulture) + "\0";
         }
 
-        // Dynamic 1K mode uses a single payload-capacity rule:
-        // payloads that fit in SOH remain 128-byte packets, and only larger payloads switch to STX/1K.
         internal static int GetBlockSizeForPayloadLength(long payloadLength)
         {
             if (payloadLength < 0)
