@@ -22,6 +22,7 @@ jobs:
           cache-dependency-path: |
             Ymodem.Protocol/Ymodem.Protocol.csproj
             Ymodem.Protocol.Tests/Ymodem.Protocol.Tests.csproj
+            Ymodem.Protocol.NetStandard.Tests/Ymodem.Protocol.NetStandard.Tests.csproj
 
       - name: Restore
         run: dotnet restore ModemKit.slnx
@@ -29,5 +30,8 @@ jobs:
       - name: Build
         run: dotnet build ModemKit.slnx --configuration Release --no-restore
 
-      - name: Test
+      - name: Test net10.0 asset
         run: dotnet test Ymodem.Protocol.Tests/Ymodem.Protocol.Tests.csproj --configuration Release --no-build
+
+      - name: Test netstandard2.0 asset
+        run: dotnet test Ymodem.Protocol.NetStandard.Tests/Ymodem.Protocol.NetStandard.Tests.csproj --configuration Release --no-build
