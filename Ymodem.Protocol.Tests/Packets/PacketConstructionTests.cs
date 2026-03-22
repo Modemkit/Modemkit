@@ -4,6 +4,14 @@ namespace Ymodem.Protocol.Tests
 {
     public sealed class PacketConstructionTests
     {
+
+        [Theory]
+        [InlineData(-1)]
+        [InlineData(3)]
+        public void BlockOptionsRejectUnsupportedMode(int mode)
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => new YModemBlockOptions((YModemBlockMode)mode));
+        }
         [Theory]
         [InlineData(1)]
         [InlineData(127)]

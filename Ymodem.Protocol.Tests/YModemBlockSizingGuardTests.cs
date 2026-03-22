@@ -25,5 +25,24 @@ namespace Ymodem.Protocol.Tests
 
             Assert.Throws<ArgumentNullException>(() => YModemBlockSizing.GetHeaderBlockSize(options, null!));
         }
+
+        [Fact]
+        public void GetDataBlockSizeReportsModeWhenBlockOptionContainsUnsupportedMode()
+        {
+            var exception = Assert.Throws<ArgumentOutOfRangeException>(() => YModemBlockSizing.GetDataBlockSize((YModemBlockOptions)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(YModemBlockOptions)), 1));
+
+            Assert.Equal("Mode", exception.ParamName);
+        }
+
+        [Fact]
+        public void GetHeaderBlockSizeReportsModeWhenBlockOptionContainsUnsupportedMode()
+        {
+            var file = new YModemFileDescriptor("demo.bin", 1);
+            var options = (YModemBlockOptions)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(YModemBlockOptions));
+
+            var exception = Assert.Throws<ArgumentOutOfRangeException>(() => YModemBlockSizing.GetHeaderBlockSize(options, file));
+
+            Assert.Equal("Mode", exception.ParamName);
+        }
     }
 }

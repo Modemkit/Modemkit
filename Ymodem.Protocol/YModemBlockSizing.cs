@@ -41,7 +41,7 @@ namespace Ymodem.Protocol
                         ? StxPayloadSize
                         : SohPayloadSize;
                 default:
-                    throw new ArgumentOutOfRangeException(nameof(blockOptions), "Unsupported YMODEM block mode.");
+                    throw new ArgumentOutOfRangeException(nameof(blockOptions.Mode), "Unsupported YMODEM block mode.");
             }
         }
 
@@ -67,7 +67,7 @@ namespace Ymodem.Protocol
                 case YModemBlockMode.Fixed1K:
                     return blockOptions.Use1KBlock0 ? StxPayloadSize : GetBlockSizeForPayloadLength(headerLength);
                 default:
-                    throw new ArgumentOutOfRangeException(nameof(blockOptions), "Unsupported YMODEM block mode.");
+                    throw new ArgumentOutOfRangeException(nameof(blockOptions.Mode), "Unsupported YMODEM block mode.");
             }
         }
 

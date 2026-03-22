@@ -1,3 +1,5 @@
+using System;
+
 namespace Ymodem.Protocol
 {
     public sealed class YModemBlockOptions
@@ -14,6 +16,16 @@ namespace Ymodem.Protocol
 
         public YModemBlockOptions(YModemBlockMode mode, bool use1KBlock0, bool use1KFinalDataBlock)
         {
+            switch (mode)
+            {
+                case YModemBlockMode.Fixed128:
+                case YModemBlockMode.Dynamic1K:
+                case YModemBlockMode.Fixed1K:
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(mode), "Unsupported YMODEM block mode.");
+            }
+
             Mode = mode;
             Use1KBlock0 = use1KBlock0;
             Use1KFinalDataBlock = use1KFinalDataBlock;
