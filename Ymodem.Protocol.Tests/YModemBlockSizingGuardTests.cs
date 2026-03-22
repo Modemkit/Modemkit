@@ -1,4 +1,6 @@
 using System;
+using System.Reflection;
+using System.Runtime.Serialization;
 
 namespace Ymodem.Protocol.Tests
 {
@@ -29,7 +31,9 @@ namespace Ymodem.Protocol.Tests
         [Fact]
         public void GetDataBlockSizeReportsModeWhenBlockOptionContainsUnsupportedMode()
         {
-            var exception = Assert.Throws<ArgumentOutOfRangeException>(() => YModemBlockSizing.GetDataBlockSize((YModemBlockOptions)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(YModemBlockOptions)), 1));
+            var options = CreateBlockOptionsWithUnsupportedMode();
+
+            var exception = Assert.Throws<ArgumentOutOfRangeException>(() => YModemBlockSizing.GetDataBlockSize(options, 1));
 
             Assert.Equal("Mode", exception.ParamName);
         }
@@ -38,11 +42,21 @@ namespace Ymodem.Protocol.Tests
         public void GetHeaderBlockSizeReportsModeWhenBlockOptionContainsUnsupportedMode()
         {
             var file = new YModemFileDescriptor("demo.bin", 1);
-            var options = (YModemBlockOptions)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(YModemBlockOptions));
+            var options = CreateBlockOptionsWithUnsupportedMode();
 
             var exception = Assert.Throws<ArgumentOutOfRangeException>(() => YModemBlockSizing.GetHeaderBlockSize(options, file));
 
             Assert.Equal("Mode", exception.ParamName);
+        }
+
+        private static YModemBlockOptions CreateBlockOptionsWithUnsupportedMode()
+        {
+            var options = (YModemBlockOptions)FormatterServices.GetUninitializedObject(typeof(YModemBlockOptions));
+            var modeField = typeof(YModemBlockOptions).GetField("<Mode>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic);
+
+            Assert.NotNull(modeField);
+            modeField!.SetValue(options, (YModemBlockMode)99);
+            return options;
         }
     }
 }
