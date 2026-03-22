@@ -379,6 +379,63 @@ namespace Ymodem.Protocol.Tests
             Assert.Equal(YModemSenderPhase.Faulted, step.Snapshot.Phase);
         }
 
+
+        [Fact]
+        public void SenderNakAfterDataBlockResendsSameDataPacket()
+        {
+            var sender = new YModemSender();
+            var payload = new byte[] { 0x41, 0x42, 0x43 };
+
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest));
+            sender.Advance(new YModemEvent.FileHeaderReady(new YModemFileDescriptor("demo.bin", payload.Length)));
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.Ack));
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest));
+
+            YModemAction.SendPacket sendData = Assert.IsType<YModemAction.SendPacket>(Assert.Single(sender.Advance(new YModemEvent.DataBlockReady(1, payload, payload.Length, true)).Actions));
+            YModemStepResult resendStep = sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.Nak));
+            YModemAction.SendPacket resend = Assert.IsType<YModemAction.SendPacket>(Assert.Single(resendStep.Actions));
+
+            Assert.Same(sendData.Packet, resend.Packet);
+            Assert.Equal("Resend data block", resend.Description);
+            Assert.Equal(YModemSenderPhase.WaitingBlockAck, resendStep.Snapshot.Phase);
+        }
+
+        [Fact]
+        public void SenderNakAfterBatchTrailerResendsSameTrailerPacket()
+        {
+            var sender = new YModemSender();
+            var payload = new byte[] { 0x41 };
+
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest));
+            sender.Advance(new YModemEvent.FileHeaderReady(new YModemFileDescriptor("demo.bin", payload.Length)));
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.Ack));
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest));
+            sender.Advance(new YModemEvent.DataBlockReady(1, payload, payload.Length, true));
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.Ack));
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.Nak));
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.Ack));
+
+            YModemAction.SendPacket sendTrailer = Assert.IsType<YModemAction.SendPacket>(Assert.Single(sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest)).Actions));
+            YModemStepResult resendStep = sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.Nak));
+            YModemAction.SendPacket resend = Assert.IsType<YModemAction.SendPacket>(Assert.Single(resendStep.Actions));
+
+            Assert.Same(sendTrailer.Packet, resend.Packet);
+            Assert.Equal("Resend batch trailer", resend.Description);
+            Assert.Equal(YModemSenderPhase.WaitingBatchTrailerAck, resendStep.Snapshot.Phase);
+        }
+
+        [Fact]
+        public void SenderPeerCancelCancelsAndEmitsCancelAction()
+        {
+            var sender = new YModemSender();
+
+            YModemStepResult step = sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.Can));
+
+            YModemAction.Cancel cancel = Assert.IsType<YModemAction.Cancel>(Assert.Single(step.Actions));
+            Assert.Equal("Peer cancelled the transfer.", cancel.Reason);
+            Assert.Equal(YModemSenderPhase.Cancelled, step.Snapshot.Phase);
+        }
+
         [Fact]
         public void SenderCancelRequestedCancelsAndEmitsCancelAction()
         {
