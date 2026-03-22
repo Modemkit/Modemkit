@@ -17,19 +17,14 @@ namespace Ymodem.Protocol
         private int _requestedBlockSize;
         private string? _failureReason;
 
-        public YModemBatchSender(YModemBlockMode blockMode)
-            : this(YModemBlockSizing.GetConfiguredDataBlockSize(blockMode))
+        public YModemBatchSender()
+            : this(YModemBlockMode.Dynamic1K)
         {
         }
 
-        public YModemBatchSender(int dataBlockSize = 1024)
+        public YModemBatchSender(YModemBlockMode blockMode)
         {
-            if (dataBlockSize != 128 && dataBlockSize != 1024)
-            {
-                throw new ArgumentOutOfRangeException(nameof(dataBlockSize), "YMODEM block size must be 128 or 1024 bytes.");
-            }
-
-            _dataBlockSize = dataBlockSize;
+            _dataBlockSize = YModemBlockSizing.GetConfiguredDataBlockSize(blockMode);
             _actions = new List<YModemAction>();
             _phase = YModemBatchSenderPhase.WaitingReceiverRequest;
             _nextBlockNumber = 1;

@@ -7,19 +7,14 @@ namespace Ymodem.Protocol
     {
         private readonly int _dataBlockSize;
 
-        public YModemPacketEncoder(YModemBlockMode blockMode)
-            : this(YModemBlockSizing.GetConfiguredDataBlockSize(blockMode))
+        public YModemPacketEncoder()
+            : this(YModemBlockMode.Dynamic1K)
         {
         }
 
-        public YModemPacketEncoder(int dataBlockSize = 1024)
+        public YModemPacketEncoder(YModemBlockMode blockMode)
         {
-            if (dataBlockSize != 128 && dataBlockSize != 1024)
-            {
-                throw new ArgumentOutOfRangeException(nameof(dataBlockSize), "YMODEM block size must be 128 or 1024 bytes.");
-            }
-
-            _dataBlockSize = dataBlockSize;
+            _dataBlockSize = YModemBlockSizing.GetConfiguredDataBlockSize(blockMode);
         }
 
         public byte[] Encode(YModemPacket packet)

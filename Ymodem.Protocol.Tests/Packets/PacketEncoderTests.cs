@@ -75,7 +75,7 @@ namespace Ymodem.Protocol.Tests
         [Fact]
         public void EncodeDataUsesConfiguredBlockSizeAndPadsWithCpmEof()
         {
-            var encoder = new YModemPacketEncoder(128);
+            var encoder = new YModemPacketEncoder(YModemBlockMode.Fixed128);
             var packet = new YModemPacket.Data(1, [0x41, 0x42, 0x43], 3);
 
             var bytes = encoder.Encode(packet);
@@ -106,7 +106,7 @@ namespace Ymodem.Protocol.Tests
         [Fact]
         public void EncoderUsesPacketBlockSizeWhenEncodingDataFrames()
         {
-            var encoder = new YModemPacketEncoder(1024);
+            var encoder = new YModemPacketEncoder();
             var packet = new YModemPacket.Data(1, new byte[128], 3, 128);
 
             var bytes = encoder.Encode(packet);
@@ -118,7 +118,7 @@ namespace Ymodem.Protocol.Tests
         [Fact]
         public void ExplicitBlockSizeAllowsShortPayloadBuffers()
         {
-            var encoder = new YModemPacketEncoder(1024);
+            var encoder = new YModemPacketEncoder();
             var packet = new YModemPacket.Data(1, [0x41, 0x42, 0x43], 3, 128);
 
             var bytes = encoder.Encode(packet);

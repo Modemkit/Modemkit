@@ -104,6 +104,14 @@ using Ymodem.Protocol;
 var sender = new YModemSender(YModemBlockMode.Fixed128);
 ```
 
+Mode differences:
+
+- `YModemBlockMode.Dynamic1K`: data blocks use 1K by default and fall back to
+  128-byte packets for sub-128-byte tails; block 0 headers still follow header
+  metadata length.
+- `YModemBlockMode.Fixed128`: data blocks always use 128-byte packets; block 0
+  headers still follow header metadata length.
+
 ### Receive a file with `YModemReceiver`
 
 ```csharp

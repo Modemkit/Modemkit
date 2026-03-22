@@ -95,7 +95,7 @@ namespace Ymodem.Protocol.Tests
         [Fact]
         public void DecoderPreservesDataBlockSizeFromFrame()
         {
-            var encoder = new YModemPacketEncoder(128);
+            var encoder = new YModemPacketEncoder(YModemBlockMode.Fixed128);
             var decoder = new YModemPacketDecoder();
             var payload = new byte[128];
             payload[0] = 0x41;
