@@ -169,7 +169,7 @@ namespace Ymodem.Protocol.Tests
         public void BatchSenderUses1KHeaderPacketWhenMetadataExceeds128Bytes()
         {
             var sender = new YModemBatchSender();
-            var file = new YModemFileDescriptor(new string('a', 119) + ".bin", 123);
+            var file = new YModemFileDescriptor(new string('a', 120) + ".bin", 123);
 
             sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest));
 

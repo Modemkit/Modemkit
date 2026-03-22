@@ -267,7 +267,7 @@ namespace Ymodem.Protocol
         private int GetNextBlockSize()
         {
             return _dataBlockSize == 1024
-                ? YModemBlockSizing.GetBlockSize(_remainingFileBytes)
+                ? YModemBlockSizing.GetDataBlockSize(_remainingFileBytes)
                 : _dataBlockSize;
         }
 

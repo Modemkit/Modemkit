@@ -51,7 +51,7 @@ namespace Ymodem.Protocol.Tests
         public void EncodeHeaderUsesBlockZeroStxWhenMetadataExceeds128Bytes()
         {
             var encoder = new YModemPacketEncoder();
-            var packet = new YModemPacket.Header(new YModemFileDescriptor(new string('a', 119) + ".bin", 123));
+            var packet = new YModemPacket.Header(new YModemFileDescriptor(new string('a', 120) + ".bin", 123));
 
             var bytes = encoder.Encode(packet);
 
@@ -137,7 +137,7 @@ namespace Ymodem.Protocol.Tests
 
             InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() => encoder.Encode(packet));
 
-            Assert.Contains("exceeds 1024 bytes", exception.Message);
+            Assert.Contains("selected header block size of 1024 bytes", exception.Message);
         }
     }
 }

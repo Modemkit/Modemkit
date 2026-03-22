@@ -58,7 +58,7 @@ namespace Ymodem.Protocol
 
             if (headerBytes.Length > payload.Length)
             {
-                throw new InvalidOperationException("File header metadata exceeds 1024 bytes.");
+                throw new InvalidOperationException("File header metadata exceeds the selected header block size of " + resolvedBlockSize + " bytes.");
             }
 
             Buffer.BlockCopy(headerBytes, 0, payload, 0, headerBytes.Length);
