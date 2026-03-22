@@ -5,8 +5,8 @@ namespace Ymodem.Protocol
 {
     internal static class YModemBlockSizing
     {
-        internal const int SohPayloadSize = 128;
-        internal const int StxPayloadSize = 1024;
+        private const int SohPayloadSize = 128;
+        private const int StxPayloadSize = 1024;
 
         public static int GetConfiguredDataBlockSize(YModemBlockMode blockMode)
         {
@@ -19,18 +19,6 @@ namespace Ymodem.Protocol
                 default:
                     throw new ArgumentOutOfRangeException(nameof(blockMode), "Unsupported YMODEM block mode.");
             }
-        }
-
-        // Dynamic 1K mode uses a single payload-capacity rule:
-        // payloads that fit in SOH remain 128-byte packets, and only larger payloads switch to STX/1K.
-        internal static int GetBlockSizeForPayloadLength(long payloadLength)
-        {
-            if (payloadLength < 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(payloadLength), "Payload length must be non-negative.");
-            }
-
-            return payloadLength <= SohPayloadSize ? SohPayloadSize : StxPayloadSize;
         }
 
         public static int GetDataBlockSize(long remainingFileBytes)
@@ -50,6 +38,18 @@ namespace Ymodem.Protocol
             return configuredDataBlockSize == SohPayloadSize
                 ? SohPayloadSize
                 : GetBlockSizeForPayloadLength(headerLength);
+        }
+
+        // Dynamic 1K mode uses a single payload-capacity rule:
+        // payloads that fit in SOH remain 128-byte packets, and only larger payloads switch to STX/1K.
+        internal static int GetBlockSizeForPayloadLength(long payloadLength)
+        {
+            if (payloadLength < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(payloadLength), "Payload length must be non-negative.");
+            }
+
+            return payloadLength <= SohPayloadSize ? SohPayloadSize : StxPayloadSize;
         }
     }
 }

@@ -60,7 +60,6 @@ namespace Ymodem.Protocol.Tests
             Assert.Equal(128, tailRequest.BlockSize);
         }
 
-
         [Fact]
         public void BatchSenderUses1KPacketForTailLargerThan128Bytes()
         {
@@ -197,7 +196,6 @@ namespace Ymodem.Protocol.Tests
             Assert.Equal(YModemControlBytes.Soh, bytes[0]);
             Assert.Equal(128 + 5, bytes.Length);
         }
-
 
         [Fact]
         public void BatchSenderUses128ByteHeaderPacketWhenMetadataIsExactly128Bytes()

@@ -124,7 +124,6 @@ namespace Ymodem.Protocol.Tests
             Assert.Equal(128 + 5, new YModemPacketEncoder(YModemBlockMode.Fixed128).Encode(tailPacket).Length);
         }
 
-
         [Fact]
         public void SenderUses1KPacketForTailLargerThan128Bytes()
         {
@@ -261,7 +260,6 @@ namespace Ymodem.Protocol.Tests
             Assert.Equal(YModemControlBytes.Soh, bytes[0]);
             Assert.Equal(128 + 5, bytes.Length);
         }
-
 
         [Fact]
         public void SenderUses128ByteHeaderPacketWhenMetadataIsExactly128Bytes()
