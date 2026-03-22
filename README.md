@@ -114,7 +114,7 @@ Mode differences:
 - `YModemBlockMode.Fixed1K`: both the block 0 header and subsequent data
   blocks always use 1K/STX packets, even for very small files or metadata.
 
-If you need `Fixed1K` mode to keep the overall transfer on 1K blocks while still allowing a dynamic header or final tail block, use `YModemBlockOptions`:
+If you need `Fixed1K` mode but still want block 0 or the final data block to fall back to the dynamic `<=128 => 128, >128 => 1024` rule, use `YModemBlockOptions`:
 
 ```csharp
 using Ymodem.Protocol;
@@ -126,6 +126,8 @@ var blockOptions = new YModemBlockOptions(
 
 var sender = new YModemSender(blockOptions);
 ```
+
+In that configuration, small files (`<= 128` bytes) will request a 128-byte data block immediately, because their only data block is also the final block.
 
 ### Receive a file with `YModemReceiver`
 
