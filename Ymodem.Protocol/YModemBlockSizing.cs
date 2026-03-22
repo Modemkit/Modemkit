@@ -32,7 +32,7 @@ namespace Ymodem.Protocol
 
         // Block 0 follows header-metadata capacity instead:
         // 128-byte payloads stay on SOH, and values above 128 bytes switch to STX/1K.
-        public static int GetHeaderBlockSize(YModemFileDescriptor file)
+        public static int GetHeaderBlockSize(int configuredDataBlockSize, YModemFileDescriptor file)
         {
             if (file == null)
             {
@@ -40,7 +40,9 @@ namespace Ymodem.Protocol
             }
 
             var headerLength = Encoding.ASCII.GetByteCount(file.FileName + "\0" + file.FileSize + "\0");
-            return headerLength <= 128 ? 128 : 1024;
+            return configuredDataBlockSize == 128
+                ? 128
+                : GetDataBlockSize(headerLength);
         }
     }
 }

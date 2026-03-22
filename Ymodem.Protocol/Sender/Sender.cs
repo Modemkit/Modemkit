@@ -249,7 +249,7 @@ namespace Ymodem.Protocol
                 return;
             }
 
-            var packet = new YModemPacket.Header(protocolEvent.File, YModemBlockSizing.GetHeaderBlockSize(protocolEvent.File));
+            var packet = new YModemPacket.Header(protocolEvent.File, YModemBlockSizing.GetHeaderBlockSize(_dataBlockSize, protocolEvent.File));
             _lastPacket = packet;
             _remainingFileBytes = protocolEvent.File.FileSize;
             _lastAcknowledgedDataLength = 0;

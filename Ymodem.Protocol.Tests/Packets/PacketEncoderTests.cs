@@ -48,6 +48,20 @@ namespace Ymodem.Protocol.Tests
         }
 
         [Fact]
+        public void EncodeHeaderUsesBlockZeroStxWhenMetadataIsExactly128BytesInDynamic1KMode()
+        {
+            var encoder = new YModemPacketEncoder();
+            var packet = new YModemPacket.Header(new YModemFileDescriptor(new string('a', 119) + ".bin", 123));
+
+            var bytes = encoder.Encode(packet);
+
+            Assert.Equal(1029, bytes.Length);
+            Assert.Equal(YModemControlBytes.Stx, bytes[0]);
+            Assert.Equal(0, bytes[1]);
+            Assert.Equal(255, bytes[2]);
+        }
+
+        [Fact]
         public void EncodeHeaderUsesBlockZeroStxWhenMetadataExceeds128Bytes()
         {
             var encoder = new YModemPacketEncoder();
@@ -59,6 +73,17 @@ namespace Ymodem.Protocol.Tests
             Assert.Equal(YModemControlBytes.Stx, bytes[0]);
             Assert.Equal(0, bytes[1]);
             Assert.Equal(255, bytes[2]);
+        }
+
+        [Fact]
+        public void Fixed128ModeRejectsHeaderMetadataLargerThan128Bytes()
+        {
+            var encoder = new YModemPacketEncoder(YModemBlockMode.Fixed128);
+            var packet = new YModemPacket.Header(new YModemFileDescriptor(new string('a', 120) + ".bin", 123));
+
+            InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() => encoder.Encode(packet));
+
+            Assert.Contains("selected header block size of 128 bytes", exception.Message);
         }
 
         [Fact]

@@ -52,7 +52,7 @@ namespace Ymodem.Protocol
             var headerText = file.FileName + "\0" + file.FileSize + "\0";
             var headerBytes = Encoding.ASCII.GetBytes(headerText);
             var resolvedBlockSize = blockSize == 0
-                ? YModemBlockSizing.GetHeaderBlockSize(file)
+                ? YModemBlockSizing.GetHeaderBlockSize(_dataBlockSize, file)
                 : blockSize;
             var payload = new byte[resolvedBlockSize];
 
