@@ -1,6 +1,6 @@
 namespace Ymodem.Protocol.Tests
 {
-    public sealed class SenderTests
+    public sealed partial class SenderTests
     {
         [Fact]
         public void SenderCompletesSingleBlockTransferThroughAbstractPackets()
@@ -394,6 +394,29 @@ namespace Ymodem.Protocol.Tests
                     Assert.Equal("stop", cancel.Reason);
                 });
             Assert.Equal(YModemSenderPhase.Cancelled, step.Snapshot.Phase);
+        }
+    }
+}
+
+namespace Ymodem.Protocol.Tests
+{
+    public sealed partial class SenderTests
+    {
+        [Fact]
+        public void SenderBlockOptionsCanForce1KHeaderAndDataBlocks()
+        {
+            var sender = new YModemSender(new YModemBlockOptions(YModemBlockMode.Fixed1K, YModemBlockMode.Fixed1K));
+            var file = new YModemFileDescriptor("demo.bin", 3);
+
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest));
+
+            YModemAction.SendPacket sendHeader = Assert.IsType<YModemAction.SendPacket>(Assert.Single(sender.Advance(new YModemEvent.FileHeaderReady(file)).Actions));
+            YModemPacket.Header header = Assert.IsType<YModemPacket.Header>(sendHeader.Packet);
+            Assert.Equal(1024, header.BlockSize);
+
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.Ack));
+            YModemAction.RequestDataBlock request = Assert.IsType<YModemAction.RequestDataBlock>(Assert.Single(sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest)).Actions));
+            Assert.Equal(1024, request.BlockSize);
         }
     }
 }

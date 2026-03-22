@@ -5,7 +5,7 @@ namespace Ymodem.Protocol
 {
     public sealed class YModemBatchSender
     {
-        private readonly int _dataBlockSize;
+        private readonly YModemBlockOptions _blockOptions;
         private readonly List<YModemAction> _actions;
 
         private YModemBatchSenderPhase _phase;
@@ -18,13 +18,18 @@ namespace Ymodem.Protocol
         private string? _failureReason;
 
         public YModemBatchSender()
-            : this(YModemBlockMode.Dynamic1K)
+            : this(new YModemBlockOptions())
         {
         }
 
         public YModemBatchSender(YModemBlockMode blockMode)
+            : this(YModemBlockOptions.FromMode(blockMode))
         {
-            _dataBlockSize = YModemBlockSizing.GetConfiguredDataBlockSize(blockMode);
+        }
+
+        public YModemBatchSender(YModemBlockOptions blockOptions)
+        {
+            _blockOptions = blockOptions ?? throw new ArgumentNullException(nameof(blockOptions));
             _actions = new List<YModemAction>();
             _phase = YModemBatchSenderPhase.WaitingReceiverRequest;
             _nextBlockNumber = 1;
@@ -204,7 +209,7 @@ namespace Ymodem.Protocol
                 return;
             }
 
-            var packet = new YModemPacket.Header(protocolEvent.File, YModemBlockSizing.GetHeaderBlockSize(_dataBlockSize, protocolEvent.File));
+            var packet = new YModemPacket.Header(protocolEvent.File, YModemBlockSizing.GetHeaderBlockSize(_blockOptions.Block0Mode, protocolEvent.File));
             _lastPacket = packet;
             _lastDataBlockSent = false;
             _remainingFileBytes = protocolEvent.File.FileSize;
@@ -266,9 +271,7 @@ namespace Ymodem.Protocol
 
         private int GetNextBlockSize()
         {
-            return _dataBlockSize == 1024
-                ? YModemBlockSizing.GetDataBlockSize(_remainingFileBytes)
-                : _dataBlockSize;
+            return YModemBlockSizing.GetDataBlockSize(_blockOptions.DataBlockMode, _remainingFileBytes);
         }
 
         private void RequestDataBlock()

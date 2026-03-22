@@ -5,16 +5,21 @@ namespace Ymodem.Protocol
 {
     public sealed class YModemPacketEncoder
     {
-        private readonly int _dataBlockSize;
+        private readonly YModemBlockOptions _blockOptions;
 
         public YModemPacketEncoder()
-            : this(YModemBlockMode.Dynamic1K)
+            : this(new YModemBlockOptions())
         {
         }
 
         public YModemPacketEncoder(YModemBlockMode blockMode)
+            : this(YModemBlockOptions.FromMode(blockMode))
         {
-            _dataBlockSize = YModemBlockSizing.GetConfiguredDataBlockSize(blockMode);
+        }
+
+        public YModemPacketEncoder(YModemBlockOptions blockOptions)
+        {
+            _blockOptions = blockOptions ?? throw new ArgumentNullException(nameof(blockOptions));
         }
 
         public byte[] Encode(YModemPacket packet)
@@ -29,7 +34,7 @@ namespace Ymodem.Protocol
                 case YModemPacket.Header header:
                     return BuildHeaderFrame(header.File, header.BlockSize);
                 case YModemPacket.Data data:
-                    return BuildDataFrame(data.BlockNumber, data.Payload, data.DataLength, data.BlockSize == 0 ? _dataBlockSize : data.BlockSize);
+                    return BuildDataFrame(data.BlockNumber, data.Payload, data.DataLength, data.BlockSize == 0 ? YModemBlockSizing.GetConfiguredBlockSize(_blockOptions.DataBlockMode) : data.BlockSize);
                 case YModemPacket.Eot _:
                     return new[] { YModemControlBytes.Eot };
                 case YModemPacket.BatchTrailer _:
@@ -52,7 +57,7 @@ namespace Ymodem.Protocol
             var headerText = YModemBlockSizing.BuildHeaderMetadata(file);
             var headerBytes = Encoding.ASCII.GetBytes(headerText);
             var resolvedBlockSize = blockSize == 0
-                ? YModemBlockSizing.GetHeaderBlockSize(_dataBlockSize, file)
+                ? YModemBlockSizing.GetHeaderBlockSize(_blockOptions.Block0Mode, file)
                 : blockSize;
             var payload = new byte[resolvedBlockSize];
 

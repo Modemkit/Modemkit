@@ -111,6 +111,20 @@ Mode differences:
 - `YModemBlockMode.Fixed128`: both the block 0 header and subsequent data
   blocks stay on 128-byte packets; if header metadata does not fit, encoding
   fails instead of switching to 1K.
+- `YModemBlockMode.Fixed1K`: both the block 0 header and subsequent data
+  blocks always use 1K/STX packets, even for very small files or metadata.
+
+If you need to configure block 0 and data blocks independently, use `YModemBlockOptions`:
+
+```csharp
+using Ymodem.Protocol;
+
+var blockOptions = new YModemBlockOptions(
+    block0Mode: YModemBlockMode.Fixed1K,
+    dataBlockMode: YModemBlockMode.Fixed1K);
+
+var sender = new YModemSender(blockOptions);
+```
 
 ### Receive a file with `YModemReceiver`
 

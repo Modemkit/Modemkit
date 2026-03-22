@@ -26,27 +26,37 @@ namespace Ymodem.Protocol.Tests
         }
 
         [Theory]
-        [InlineData(YModemBlockMode.Fixed128, 119, 123, 128)]
-        [InlineData(YModemBlockMode.Fixed128, 120, 123, 128)]
-        [InlineData(YModemBlockMode.Dynamic1K, 119, 123, 128)]
-        [InlineData(YModemBlockMode.Dynamic1K, 120, 123, 1024)]
-        public void GetHeaderBlockSizeUsesConfiguredModeAndPayloadCapacityRule(YModemBlockMode blockMode, int fileNameLength, long fileSize, int expectedBlockSize)
+        [InlineData(YModemBlockMode.Fixed128, 128)]
+        [InlineData(YModemBlockMode.Dynamic1K, 1024)]
+        [InlineData(YModemBlockMode.Fixed1K, 1024)]
+        public void GetConfiguredBlockSizeReturnsExpectedValue(YModemBlockMode blockMode, int expectedBlockSize)
         {
-            var configuredDataBlockSize = YModemBlockSizing.GetConfiguredDataBlockSize(blockMode);
-            var file = new YModemFileDescriptor(new string('a', fileNameLength) + ".bin", fileSize);
-
-            var blockSize = YModemBlockSizing.GetHeaderBlockSize(configuredDataBlockSize, file);
+            var blockSize = YModemBlockSizing.GetConfiguredBlockSize(blockMode);
 
             Assert.Equal(expectedBlockSize, blockSize);
         }
 
         [Theory]
-        [InlineData(0, 128)]
-        [InlineData(128, 128)]
-        [InlineData(129, 1024)]
-        public void GetDataBlockSizeDelegatesToPayloadCapacityRule(long remainingFileBytes, int expectedBlockSize)
+        [InlineData(YModemBlockMode.Fixed128, 1, 128)]
+        [InlineData(YModemBlockMode.Dynamic1K, 1, 128)]
+        [InlineData(YModemBlockMode.Fixed1K, 1, 1024)]
+        public void GetDataBlockSizeUsesSelectedBlockMode(YModemBlockMode blockMode, long remainingBytes, int expectedBlockSize)
         {
-            var blockSize = YModemBlockSizing.GetDataBlockSize(remainingFileBytes);
+            var blockSize = YModemBlockSizing.GetDataBlockSize(blockMode, remainingBytes);
+
+            Assert.Equal(expectedBlockSize, blockSize);
+        }
+
+        [Theory]
+        [InlineData(YModemBlockMode.Fixed128, 119, 128)]
+        [InlineData(YModemBlockMode.Dynamic1K, 119, 128)]
+        [InlineData(YModemBlockMode.Dynamic1K, 120, 1024)]
+        [InlineData(YModemBlockMode.Fixed1K, 119, 1024)]
+        public void GetHeaderBlockSizeUsesSelectedBlockMode(YModemBlockMode blockMode, int fileNameLength, int expectedBlockSize)
+        {
+            var file = new YModemFileDescriptor(new string('a', fileNameLength) + ".bin", 123);
+
+            var blockSize = YModemBlockSizing.GetHeaderBlockSize(blockMode, file);
 
             Assert.Equal(expectedBlockSize, blockSize);
         }
@@ -72,6 +82,5 @@ namespace Ymodem.Protocol.Tests
                 CultureInfo.CurrentUICulture = originalUiCulture;
             }
         }
-
     }
 }
