@@ -39,7 +39,7 @@ namespace Ymodem.Protocol
             }
         }
 
-        private static byte[] BuildHeaderFrame(YModemFileDescriptor file, int blockSize)
+        private byte[] BuildHeaderFrame(YModemFileDescriptor file, int blockSize)
         {
             foreach (var ch in file.FileName)
             {

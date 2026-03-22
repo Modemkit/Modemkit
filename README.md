@@ -107,7 +107,7 @@ var sender = new YModemSender(YModemBlockMode.Fixed128);
 Mode differences:
 
 - `YModemBlockMode.Dynamic1K`: both the block 0 header and subsequent data
-  blocks use the same threshold rule, `<128 => 128` and `>=128 => 1024`.
+  blocks use the same capacity rule, `<=128 => 128` and `>128 => 1024`.
 - `YModemBlockMode.Fixed128`: both the block 0 header and subsequent data
   blocks stay on 128-byte packets; if header metadata does not fit, encoding
   fails instead of switching to 1K.

@@ -48,15 +48,15 @@ namespace Ymodem.Protocol.Tests
         }
 
         [Fact]
-        public void EncodeHeaderUsesBlockZeroStxWhenMetadataIsExactly128BytesInDynamic1KMode()
+        public void EncodeHeaderUsesBlockZeroSohWhenMetadataIsExactly128BytesInDynamic1KMode()
         {
             var encoder = new YModemPacketEncoder();
             var packet = new YModemPacket.Header(new YModemFileDescriptor(new string('a', 119) + ".bin", 123));
 
             var bytes = encoder.Encode(packet);
 
-            Assert.Equal(1029, bytes.Length);
-            Assert.Equal(YModemControlBytes.Stx, bytes[0]);
+            Assert.Equal(133, bytes.Length);
+            Assert.Equal(YModemControlBytes.Soh, bytes[0]);
             Assert.Equal(0, bytes[1]);
             Assert.Equal(255, bytes[2]);
         }

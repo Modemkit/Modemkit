@@ -18,8 +18,8 @@ namespace Ymodem.Protocol
             }
         }
 
-        // Data blocks follow the sender rule requested by the caller:
-        // values below 128 bytes use 128-byte packets, and 128+ bytes use 1K packets.
+        // Dynamic 1K mode keeps 128-byte packets for values that still fit in 128 bytes.
+        // Only values above 128 bytes switch to STX/1K packets.
         public static int GetDataBlockSize(long remainingFileBytes)
         {
             if (remainingFileBytes < 0)
@@ -27,11 +27,11 @@ namespace Ymodem.Protocol
                 throw new ArgumentOutOfRangeException(nameof(remainingFileBytes), "Remaining file bytes must be non-negative.");
             }
 
-            return remainingFileBytes < 128 ? 128 : 1024;
+            return remainingFileBytes <= 128 ? 128 : 1024;
         }
 
-        // Block 0 follows header-metadata capacity instead:
-        // 128-byte payloads stay on SOH, and values above 128 bytes switch to STX/1K.
+        // Block 0 follows the same capacity rule in dynamic mode:
+        // values that fit in 128 bytes stay on SOH, and only larger headers switch to STX/1K.
         public static int GetHeaderBlockSize(int configuredDataBlockSize, YModemFileDescriptor file)
         {
             if (file == null)

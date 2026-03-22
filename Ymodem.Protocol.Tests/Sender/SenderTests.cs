@@ -206,7 +206,7 @@ namespace Ymodem.Protocol.Tests
         [InlineData(0, 128)]
         [InlineData(1, 128)]
         [InlineData(127, 128)]
-        [InlineData(128, 1024)]
+        [InlineData(128, 128)]
         [InlineData(129, 1024)]
         [InlineData(1024, 1024)]
         [InlineData(1025, 1024)]
@@ -226,7 +226,7 @@ namespace Ymodem.Protocol.Tests
         [Theory]
         [InlineData(1, 128)]
         [InlineData(127, 128)]
-        [InlineData(128, 1024)]
+        [InlineData(128, 128)]
         [InlineData(129, 1024)]
         [InlineData(1024, 1024)]
         public void SenderRequestsExpectedTailBlockSizeAfterFull1KBlock(int tailSize, int expectedBlockSize)
@@ -258,6 +258,24 @@ namespace Ymodem.Protocol.Tests
             YModemPacket.Header header = Assert.IsType<YModemPacket.Header>(sendHeader.Packet);
             var bytes = new YModemPacketEncoder().Encode(header);
 
+            Assert.Equal(YModemControlBytes.Soh, bytes[0]);
+            Assert.Equal(128 + 5, bytes.Length);
+        }
+
+
+        [Fact]
+        public void SenderUses128ByteHeaderPacketWhenMetadataIsExactly128Bytes()
+        {
+            var sender = new YModemSender();
+            var file = new YModemFileDescriptor(new string('a', 119) + ".bin", 123);
+
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest));
+
+            YModemAction.SendPacket sendHeader = Assert.IsType<YModemAction.SendPacket>(Assert.Single(sender.Advance(new YModemEvent.FileHeaderReady(file)).Actions));
+            YModemPacket.Header header = Assert.IsType<YModemPacket.Header>(sendHeader.Packet);
+            var bytes = new YModemPacketEncoder().Encode(header);
+
+            Assert.Equal(128, header.BlockSize);
             Assert.Equal(YModemControlBytes.Soh, bytes[0]);
             Assert.Equal(128 + 5, bytes.Length);
         }
