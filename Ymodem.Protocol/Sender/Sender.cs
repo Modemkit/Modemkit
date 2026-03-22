@@ -18,6 +18,11 @@ namespace Ymodem.Protocol
         private int _requestedBlockSize;
         private string? _failureReason;
 
+        public YModemSender(YModemBlockMode blockMode)
+            : this(YModemBlockSizing.GetConfiguredDataBlockSize(blockMode))
+        {
+        }
+
         public YModemSender(int dataBlockSize = 1024)
         {
             if (dataBlockSize != 128 && dataBlockSize != 1024)

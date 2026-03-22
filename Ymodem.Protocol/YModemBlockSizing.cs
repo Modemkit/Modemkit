@@ -5,6 +5,19 @@ namespace Ymodem.Protocol
 {
     internal static class YModemBlockSizing
     {
+        public static int GetConfiguredDataBlockSize(YModemBlockMode blockMode)
+        {
+            switch (blockMode)
+            {
+                case YModemBlockMode.Fixed128:
+                    return 128;
+                case YModemBlockMode.Dynamic1K:
+                    return 1024;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(blockMode), "Unsupported YMODEM block mode.");
+            }
+        }
+
         // Data blocks follow the sender rule requested by the caller:
         // values below 128 bytes use 128-byte packets, and 128+ bytes use 1K packets.
         public static int GetDataBlockSize(long remainingFileBytes)

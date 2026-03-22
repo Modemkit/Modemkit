@@ -105,6 +105,21 @@ namespace Ymodem.Protocol.Tests
             Assert.Equal(128, requestData.BlockSize);
         }
 
+        [Fact]
+        public void BatchSenderFixed128ModeRequests128ByteBlocksForLargeFiles()
+        {
+            var sender = new YModemBatchSender(YModemBlockMode.Fixed128);
+
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest));
+            sender.Advance(new YModemEvent.FileHeaderReady(new YModemFileDescriptor("large.bin", 2048)));
+            sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.Ack));
+
+            YModemAction.RequestDataBlock requestData = Assert.IsType<YModemAction.RequestDataBlock>(Assert.Single(sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest)).Actions));
+
+            Assert.Equal(1, requestData.BlockNumber);
+            Assert.Equal(128, requestData.BlockSize);
+        }
+
         [Theory]
         [InlineData(0, 128)]
         [InlineData(1, 128)]

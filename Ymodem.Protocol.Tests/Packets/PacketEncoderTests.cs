@@ -92,6 +92,18 @@ namespace Ymodem.Protocol.Tests
         }
 
         [Fact]
+        public void EncodeDataUsesFixed128Mode()
+        {
+            var encoder = new YModemPacketEncoder(YModemBlockMode.Fixed128);
+            var packet = new YModemPacket.Data(1, [0x41, 0x42, 0x43], 3);
+
+            var bytes = encoder.Encode(packet);
+
+            Assert.Equal(YModemControlBytes.Soh, bytes[0]);
+            Assert.Equal(128 + 5, bytes.Length);
+        }
+
+        [Fact]
         public void EncoderUsesPacketBlockSizeWhenEncodingDataFrames()
         {
             var encoder = new YModemPacketEncoder(1024);

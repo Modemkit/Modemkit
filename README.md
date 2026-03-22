@@ -95,6 +95,15 @@ foreach (YModemAction action in step.Actions)
 // and execute SendPacket / RequestDataBlock actions until completion.
 ```
 
+To force the sender to stay in 128-byte data-block mode instead of using the
+default dynamic 1K mode:
+
+```csharp
+using Ymodem.Protocol;
+
+var sender = new YModemSender(YModemBlockMode.Fixed128);
+```
+
 ### Receive a file with `YModemReceiver`
 
 ```csharp
