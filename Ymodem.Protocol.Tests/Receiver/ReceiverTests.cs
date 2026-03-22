@@ -165,6 +165,58 @@ namespace Ymodem.Protocol.Tests
         }
 
         [Fact]
+        public void ReceiverStartRequestedInInvalidStateFaults()
+        {
+            var receiver = new YModemReceiver();
+            receiver.Advance(new YModemEvent.StartRequested());
+
+            YModemReceiveStepResult step = receiver.Advance(new YModemEvent.StartRequested());
+
+            YModemAction.Fail failure = Assert.IsType<YModemAction.Fail>(Assert.Single(step.Actions));
+            Assert.Equal("Receive session was started in an invalid state.", failure.Reason);
+            Assert.Equal(YModemReceiverPhase.Faulted, step.Snapshot.Phase);
+            Assert.Equal("Receive session was started in an invalid state.", step.Snapshot.FailureReason);
+        }
+
+        [Fact]
+        public void ReceiverFileHeaderRejectedInInvalidStateFaults()
+        {
+            var receiver = new YModemReceiver();
+            receiver.Advance(new YModemEvent.StartRequested());
+
+            YModemReceiveStepResult step = receiver.Advance(new YModemEvent.FileHeaderRejected("no space"));
+
+            YModemAction.Fail failure = Assert.IsType<YModemAction.Fail>(Assert.Single(step.Actions));
+            Assert.Equal("File header was rejected in an invalid state.", failure.Reason);
+            Assert.Equal(YModemReceiverPhase.Faulted, step.Snapshot.Phase);
+        }
+
+        [Fact]
+        public void ReceiverDataBlockRejectedInInvalidStateFaults()
+        {
+            var receiver = new YModemReceiver();
+            receiver.Advance(new YModemEvent.StartRequested());
+
+            YModemReceiveStepResult step = receiver.Advance(new YModemEvent.DataBlockRejected());
+
+            YModemAction.Fail failure = Assert.IsType<YModemAction.Fail>(Assert.Single(step.Actions));
+            Assert.Equal("Data block was rejected in an invalid state.", failure.Reason);
+            Assert.Equal(YModemReceiverPhase.Faulted, step.Snapshot.Phase);
+        }
+
+        [Fact]
+        public void ReceiverUnsupportedEventFaults()
+        {
+            var receiver = new YModemReceiver();
+
+            YModemReceiveStepResult step = receiver.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.Ack));
+
+            YModemAction.Fail failure = Assert.IsType<YModemAction.Fail>(Assert.Single(step.Actions));
+            Assert.Equal("Unsupported protocol event.", failure.Reason);
+            Assert.Equal(YModemReceiverPhase.Faulted, step.Snapshot.Phase);
+        }
+
+        [Fact]
         public void ReceiverRepeatedPreviousBlockAcksWithoutDeliveringAgain()
         {
             var receiver = new YModemReceiver();

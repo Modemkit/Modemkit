@@ -5,7 +5,7 @@ namespace Ymodem.Protocol
 {
     public sealed class YModemBatchSender
     {
-        private readonly int _dataBlockSize;
+        private readonly YModemBlockOptions _blockOptions;
         private readonly List<YModemAction> _actions;
 
         private YModemBatchSenderPhase _phase;
@@ -17,14 +17,19 @@ namespace Ymodem.Protocol
         private int _requestedBlockSize;
         private string? _failureReason;
 
-        public YModemBatchSender(int dataBlockSize = 1024)
+        public YModemBatchSender()
+            : this(new YModemBlockOptions())
         {
-            if (dataBlockSize != 128 && dataBlockSize != 1024)
-            {
-                throw new ArgumentOutOfRangeException(nameof(dataBlockSize), "YMODEM block size must be 128 or 1024 bytes.");
-            }
+        }
 
-            _dataBlockSize = dataBlockSize;
+        public YModemBatchSender(YModemBlockMode blockMode)
+            : this(YModemBlockOptions.FromMode(blockMode))
+        {
+        }
+
+        public YModemBatchSender(YModemBlockOptions blockOptions)
+        {
+            _blockOptions = blockOptions ?? throw new ArgumentNullException(nameof(blockOptions));
             _actions = new List<YModemAction>();
             _phase = YModemBatchSenderPhase.WaitingReceiverRequest;
             _nextBlockNumber = 1;
@@ -204,7 +209,7 @@ namespace Ymodem.Protocol
                 return;
             }
 
-            var packet = new YModemPacket.Header(protocolEvent.File);
+            var packet = new YModemPacket.Header(protocolEvent.File, YModemBlockSizing.GetHeaderBlockSize(_blockOptions, protocolEvent.File));
             _lastPacket = packet;
             _lastDataBlockSent = false;
             _remainingFileBytes = protocolEvent.File.FileSize;
@@ -266,16 +271,7 @@ namespace Ymodem.Protocol
 
         private int GetNextBlockSize()
         {
-            if (_dataBlockSize == 1024)
-            {
-                if (_remainingFileBytes <= 128)
-                {
-                    return 128;
-                }
-
-            }
-
-            return _dataBlockSize;
+            return YModemBlockSizing.GetDataBlockSize(_blockOptions, _remainingFileBytes);
         }
 
         private void RequestDataBlock()

@@ -11,11 +11,28 @@ namespace Ymodem.Protocol
         public sealed class Header : YModemPacket
         {
             public Header(YModemFileDescriptor file)
+                : this(file, 0)
+            {
+            }
+
+            public Header(YModemFileDescriptor file, int blockSize)
             {
                 File = file ?? throw new ArgumentNullException(nameof(file));
+
+                if (blockSize != 0 && blockSize != 128 && blockSize != 1024)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(blockSize), "Header block size must be 128 or 1024 bytes when specified.");
+                }
+
+                BlockSize = blockSize;
             }
 
             public YModemFileDescriptor File
+            {
+                get;
+            }
+
+            public int BlockSize
             {
                 get;
             }

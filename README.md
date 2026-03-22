@@ -95,6 +95,40 @@ foreach (YModemAction action in step.Actions)
 // and execute SendPacket / RequestDataBlock actions until completion.
 ```
 
+To force the sender to stay in 128-byte data-block mode instead of using the
+default dynamic 1K mode:
+
+```csharp
+using Ymodem.Protocol;
+
+var sender = new YModemSender(YModemBlockMode.Fixed128);
+```
+
+Mode differences:
+
+- `YModemBlockMode.Dynamic1K`: both the block 0 header and subsequent data
+  blocks use the same capacity rule, `<=128 => 128` and `>128 => 1024`.
+- `YModemBlockMode.Fixed128`: both the block 0 header and subsequent data
+  blocks stay on 128-byte packets; if header metadata does not fit, encoding
+  fails instead of switching to 1K.
+- `YModemBlockMode.Fixed1K`: both the block 0 header and subsequent data
+  blocks always use 1K/STX packets, even for very small files or metadata.
+
+If you need `Fixed1K` mode but still want block 0 or the final data block to fall back to the dynamic `<=128 => 128, >128 => 1024` rule, use `YModemBlockOptions`:
+
+```csharp
+using Ymodem.Protocol;
+
+var blockOptions = new YModemBlockOptions(
+    mode: YModemBlockMode.Fixed1K,
+    use1KBlock0: false,
+    use1KFinalDataBlock: false);
+
+var sender = new YModemSender(blockOptions);
+```
+
+In that configuration, small files (`<= 128` bytes) will request a 128-byte data block immediately, because their only data block is also the final block.
+
 ### Receive a file with `YModemReceiver`
 
 ```csharp

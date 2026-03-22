@@ -58,6 +58,123 @@ namespace Ymodem.Protocol.Tests
         }
 
         [Fact]
+        public void BatchReceiverFileHeaderRejectedCancelsAndSendsCan()
+        {
+            var receiver = new YModemBatchReceiver();
+            receiver.Advance(new YModemEvent.StartRequested());
+            receiver.Advance(new YModemEvent.PacketReceived(new YModemPacket.Header(new YModemFileDescriptor("demo.bin", 3))));
+
+            YModemBatchReceiveStepResult step = receiver.Advance(new YModemEvent.FileHeaderRejected("no space"));
+
+            Assert.Collection(
+                step.Actions,
+                action =>
+                {
+                    YModemAction.SendControl can = Assert.IsType<YModemAction.SendControl>(action);
+                    Assert.Equal(YModemControlBytes.Can, can.Value);
+                },
+                action =>
+                {
+                    YModemAction.Cancel cancel = Assert.IsType<YModemAction.Cancel>(action);
+                    Assert.Equal("no space", cancel.Reason);
+                });
+            Assert.Equal(YModemBatchReceiverPhase.Cancelled, step.Snapshot.Phase);
+        }
+
+        [Fact]
+        public void BatchReceiverDataBlockRejectedSendsNak()
+        {
+            var receiver = new YModemBatchReceiver();
+            receiver.Advance(new YModemEvent.StartRequested());
+            receiver.Advance(new YModemEvent.PacketReceived(new YModemPacket.Header(new YModemFileDescriptor("demo.bin", 3))));
+            receiver.Advance(new YModemEvent.FileHeaderAccepted());
+
+            var payload = new byte[1024];
+            receiver.Advance(new YModemEvent.PacketReceived(new YModemPacket.Data(1, payload, payload.Length)));
+
+            YModemBatchReceiveStepResult step = receiver.Advance(new YModemEvent.DataBlockRejected());
+
+            YModemAction.SendControl nak = Assert.IsType<YModemAction.SendControl>(Assert.Single(step.Actions));
+            Assert.Equal(YModemControlBytes.Nak, nak.Value);
+            Assert.Equal(YModemBatchReceiverPhase.WaitingDataPacketOrEot, step.Snapshot.Phase);
+        }
+
+        [Fact]
+        public void BatchReceiverCancelRequestedCancelsAndSendsCan()
+        {
+            var receiver = new YModemBatchReceiver();
+            receiver.Advance(new YModemEvent.StartRequested());
+
+            YModemBatchReceiveStepResult step = receiver.Advance(new YModemEvent.CancelRequested("user"));
+
+            Assert.Collection(
+                step.Actions,
+                action =>
+                {
+                    YModemAction.SendControl can = Assert.IsType<YModemAction.SendControl>(action);
+                    Assert.Equal(YModemControlBytes.Can, can.Value);
+                },
+                action =>
+                {
+                    YModemAction.Cancel cancel = Assert.IsType<YModemAction.Cancel>(action);
+                    Assert.Equal("user", cancel.Reason);
+                });
+            Assert.Equal(YModemBatchReceiverPhase.Cancelled, step.Snapshot.Phase);
+        }
+
+        [Fact]
+        public void BatchReceiverStartRequestedInInvalidStateFaults()
+        {
+            var receiver = new YModemBatchReceiver();
+            receiver.Advance(new YModemEvent.StartRequested());
+
+            YModemBatchReceiveStepResult step = receiver.Advance(new YModemEvent.StartRequested());
+
+            YModemAction.Fail failure = Assert.IsType<YModemAction.Fail>(Assert.Single(step.Actions));
+            Assert.Equal("Receive session was started in an invalid state.", failure.Reason);
+            Assert.Equal(YModemBatchReceiverPhase.Faulted, step.Snapshot.Phase);
+            Assert.Equal("Receive session was started in an invalid state.", step.Snapshot.FailureReason);
+        }
+
+        [Fact]
+        public void BatchReceiverFileHeaderRejectedInInvalidStateFaults()
+        {
+            var receiver = new YModemBatchReceiver();
+            receiver.Advance(new YModemEvent.StartRequested());
+
+            YModemBatchReceiveStepResult step = receiver.Advance(new YModemEvent.FileHeaderRejected("no space"));
+
+            YModemAction.Fail failure = Assert.IsType<YModemAction.Fail>(Assert.Single(step.Actions));
+            Assert.Equal("File header was rejected in an invalid state.", failure.Reason);
+            Assert.Equal(YModemBatchReceiverPhase.Faulted, step.Snapshot.Phase);
+        }
+
+        [Fact]
+        public void BatchReceiverDataBlockRejectedInInvalidStateFaults()
+        {
+            var receiver = new YModemBatchReceiver();
+            receiver.Advance(new YModemEvent.StartRequested());
+
+            YModemBatchReceiveStepResult step = receiver.Advance(new YModemEvent.DataBlockRejected());
+
+            YModemAction.Fail failure = Assert.IsType<YModemAction.Fail>(Assert.Single(step.Actions));
+            Assert.Equal("Data block was rejected in an invalid state.", failure.Reason);
+            Assert.Equal(YModemBatchReceiverPhase.Faulted, step.Snapshot.Phase);
+        }
+
+        [Fact]
+        public void BatchReceiverUnsupportedEventFaults()
+        {
+            var receiver = new YModemBatchReceiver();
+
+            YModemBatchReceiveStepResult step = receiver.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.Ack));
+
+            YModemAction.Fail failure = Assert.IsType<YModemAction.Fail>(Assert.Single(step.Actions));
+            Assert.Equal("Unsupported protocol event.", failure.Reason);
+            Assert.Equal(YModemBatchReceiverPhase.Faulted, step.Snapshot.Phase);
+        }
+
+        [Fact]
         public void BatchReceiverAcceptsSenderPacketWithLogicalBlock256AfterWireWrapAround()
         {
             const long fileSize = (255L * 1024) + 1;
