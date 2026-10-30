@@ -34,11 +34,13 @@ See [the release guide](docs/releases.md) for the update and publication command
 - YMODEM send actions expose negotiated integrity; packet buffers own their
   data so caller mutation cannot change a retransmission.
 - CI covers both library asset selections, packaging, documentation and
-  independent interoperability. The recorded branch validation passed 759
+  independent interoperability. The recorded branch validation passed 771
   tests per asset selection and 156 native cases; these are dated results.
 
 ### Fixed
 
+- ZMODEM EOF completion arriving after a late recovery request, including
+  coalesced responses and outstanding application reads during streaming.
 - The native interoperability runner's retry timer racing lrzsz's one-second
   X/YMODEM EOT quiet check on Linux process pipes.
 - Lost header/data/final acknowledgements, truncated frames, sequence rollover,

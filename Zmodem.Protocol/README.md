@@ -68,6 +68,11 @@ accepts acknowledgements and recovery requests while a source read is pending;
 a superseded read at an obsolete offset is ignored. `AcknowledgedOffset` and
 `NextSendOffset` distinguish committed bytes from bytes in flight.
 
+If EOF confirmation arrives while recovery reads are still pending, the
+sender reports `FileCompleted` but drains their `DataBlockReady` callbacks
+before requesting the next file. Finish already-issued source reads even after
+`FileCompleted`; their bytes are discarded rather than reused for another file.
+
 On `OfferFileHeader`, supply `FileAccepted(resumeOffset)` or `FileSkipped`.
 `OfferFileHeader.Header` exposes file management/conversion flags to the caller;
 the library never applies filesystem policies or opens incoming paths. Persist

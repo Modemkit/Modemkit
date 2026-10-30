@@ -72,6 +72,17 @@ jobs:
       - name: Test interoperability with lrzsz
         run: dotnet run --project ModemKit.Interop/ModemKit.Interop.csproj --configuration Release --no-build -- --lrzsz-directory /usr/bin --timeout-seconds 15
 
+      - name: Exercise repeated ZMODEM startup and EOF
+        shell: bash
+        run: |
+          for attempt in {1..20}; do
+            echo "ZMODEM startup/EOF pass $attempt/20"
+            dotnet run --project ModemKit.Interop/ModemKit.Interop.csproj \
+              --configuration Release --no-build -- \
+              --lrzsz-directory /usr/bin --protocol zstream,zwindow \
+              --direction send --sizes 0,1,129 --timeout-seconds 15
+          done
+
       - name: Upload validation artifacts
         if: always()
         uses: actions/upload-artifact@v7

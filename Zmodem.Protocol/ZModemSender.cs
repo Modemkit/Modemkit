@@ -6,7 +6,7 @@ namespace Zmodem.Protocol
     public sealed class ZModemSender : ZModemSession
     {
         private readonly ZModemStreamDecoder _terminalDecoder;
-        private readonly HashSet<uint> _supersededOffsets = new HashSet<uint>();
+        private readonly Dictionary<uint, int> _supersededOffsets = new Dictionary<uint, int>();
         private ZModemFileDescriptor? _file;
         private ZModemHeaderFormat _format = ZModemHeaderFormat.Binary16;
         private byte[]? _fileTransmission;
@@ -15,14 +15,17 @@ namespace Zmodem.Protocol
         private uint _requestedOffset;
         private uint _crcCount;
         private uint? _cachedCrc;
+        private uint? _sentEofOffset;
         private uint _cachedCrcCount;
         private int _requestedLength;
         private int _peerSegmentSize;
         private int _frameBytes;
         private int _sinceAckRequest;
+        private int _supersededReadCount;
         private bool _streaming;
         private bool _frameOpen;
         private bool _forceSync;
+        private bool _awaitingCompletedReads;
 
         public ZModemSender(ZModemOptions? options = null)
             : base(options)
@@ -40,8 +43,20 @@ namespace Zmodem.Protocol
 
         protected override void OnApplicationEvent(ZModemEvent protocolEvent)
         {
+            if (_awaitingCompletedReads && protocolEvent is ZModemEvent.DataBlockReady completedRead &&
+                DiscardSupersededRead(completedRead.Offset))
+            {
+                if (_supersededOffsets.Count == 0)
+                {
+                    _awaitingCompletedReads = false;
+                    RequestFile();
+                }
+
+                return;
+            }
+
             if (protocolEvent is ZModemEvent.DataBlockReady stale &&
-                (Phase != ZModemPhase.WaitingData || stale.Offset != _requestedOffset) && _supersededOffsets.Remove(stale.Offset))
+                (Phase != ZModemPhase.WaitingData || stale.Offset != _requestedOffset) && DiscardSupersededRead(stale.Offset))
             {
                 return;
             }
@@ -56,6 +71,7 @@ namespace Zmodem.Protocol
                     _file = ready.File;
                     Position = _nextSendOffset = 0;
                     _cachedCrc = null;
+                    _sentEofOffset = null;
                     Progress();
                     Phase = ZModemPhase.WaitingFileResponse;
                     uint flags = (UseVariableResponseHeaders ? 1u : 0u) | (ZModemHeader.IsRleFormat(_format) ? 0x300u : 0u);
@@ -92,6 +108,19 @@ namespace Zmodem.Protocol
 
         protected override void OnWireEvent(ZModemWireEvent wireEvent)
         {
+            if (_awaitingCompletedReads)
+            {
+                if (wireEvent is ZModemWireEvent.HeaderReceived aborted &&
+                    (aborted.Header.Type == ZModemHeaderType.Zabort ||
+                     aborted.Header.Type == ZModemHeaderType.Zcan ||
+                     aborted.Header.Type == ZModemHeaderType.Zferr))
+                {
+                    Cancel("Peer aborted the transfer.", true);
+                }
+
+                return;
+            }
+
             if (wireEvent is ZModemWireEvent.InvalidFrame)
             {
                 if (_file != null && (Phase == ZModemPhase.WaitingData || Phase == ZModemPhase.WaitingDataAck || Phase == ZModemPhase.WaitingEofResponse))
@@ -150,15 +179,9 @@ namespace Zmodem.Protocol
                     ConfigurePeer(header);
                     RequestFile();
                     break;
-                case ZModemHeaderType.Zrinit when Phase == ZModemPhase.WaitingEofResponse:
-                    Position = _nextSendOffset;
-                    if (_file != null)
-                    {
-                        Add(new ZModemAction.FileCompleted(_file, Position));
-                    }
-
-                    ConfigurePeer(header);
-                    RequestFile();
+                case ZModemHeaderType.Zrinit when _file != null && _sentEofOffset.HasValue &&
+                    (Phase == ZModemPhase.WaitingData || Phase == ZModemPhase.WaitingDataAck || Phase == ZModemPhase.WaitingEofResponse):
+                    ConfirmFileCompleted(header);
                     break;
                 case ZModemHeaderType.Zrinit when Phase == ZModemPhase.WaitingFileResponse:
                     if (TryRetry() && _fileTransmission != null)
@@ -280,24 +303,58 @@ namespace Zmodem.Protocol
             }
 
             _file = null;
+            _sentEofOffset = null;
+            _supersededOffsets.Clear();
+            _supersededReadCount = 0;
+            _awaitingCompletedReads = false;
             _frameOpen = false;
+            _forceSync = false;
             _frameBytes = _sinceAckRequest = 0;
             Progress();
             Phase = ZModemPhase.WaitingFile;
             Add(new ZModemAction.RequestFileHeader());
         }
 
+        private void ConfirmFileCompleted(ZModemHeader header)
+        {
+            if (_file == null || !_sentEofOffset.HasValue)
+            {
+                return;
+            }
+
+            if (Phase == ZModemPhase.WaitingData && !MarkSupersededRead(_requestedOffset))
+            {
+                return;
+            }
+
+            // A late ZRPOS can rewind the cursor after an EOF the peer accepted.
+            // Its following ZRINIT confirms that EOF, not the retransmit cursor.
+            Position = _nextSendOffset = _sentEofOffset.Value;
+            Add(new ZModemAction.FileCompleted(_file, Position));
+            _file = null;
+            _sentEofOffset = null;
+            _frameOpen = false;
+            ConfigurePeer(header);
+            Progress();
+            if (_supersededOffsets.Count > 0)
+            {
+                // Data callbacks identify only offsets. Drain issued old-file
+                // reads before asking for another file with overlapping offsets.
+                _awaitingCompletedReads = true;
+                Phase = ZModemPhase.WaitingData;
+            }
+            else
+            {
+                RequestFile();
+            }
+        }
+
         private void RestartAt(uint offset, bool forceSync)
         {
             bool reuseRequest = Phase == ZModemPhase.WaitingData && _requestedOffset == offset;
-            if (Phase == ZModemPhase.WaitingData && !reuseRequest)
+            if (Phase == ZModemPhase.WaitingData && !reuseRequest && !MarkSupersededRead(_requestedOffset))
             {
-                _supersededOffsets.Add(_requestedOffset);
-                if (_supersededOffsets.Count > Options.MaxBufferedBytes / sizeof(uint))
-                {
-                    Fault("Too many source reads were superseded before completion.");
-                    return;
-                }
+                return;
             }
 
             Position = _nextSendOffset = offset;
@@ -308,6 +365,40 @@ namespace Zmodem.Protocol
             {
                 RequestData();
             }
+        }
+
+        private bool MarkSupersededRead(uint offset)
+        {
+            if (_supersededReadCount >= Options.MaxBufferedBytes / sizeof(uint))
+            {
+                Fault("Too many source reads were superseded before completion.");
+                return false;
+            }
+
+            _supersededOffsets.TryGetValue(offset, out int count);
+            _supersededOffsets[offset] = count + 1;
+            _supersededReadCount++;
+            return true;
+        }
+
+        private bool DiscardSupersededRead(uint offset)
+        {
+            if (!_supersededOffsets.TryGetValue(offset, out int count))
+            {
+                return false;
+            }
+
+            if (count == 1)
+            {
+                _supersededOffsets.Remove(offset);
+            }
+            else
+            {
+                _supersededOffsets[offset] = count - 1;
+            }
+
+            _supersededReadCount--;
+            return true;
         }
 
         private void RequestData()
@@ -321,6 +412,7 @@ namespace Zmodem.Protocol
             if (_nextSendOffset == _file.FileSize)
             {
                 Phase = ZModemPhase.WaitingEofResponse;
+                _sentEofOffset = _nextSendOffset;
                 SendHeader(ZModemHeaderType.Zeof, _nextSendOffset);
                 return;
             }

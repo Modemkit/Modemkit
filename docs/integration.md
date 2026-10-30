@@ -262,6 +262,11 @@ blocking the entire loop until disk I/O finishes prevents those events from
 being handled. Buffer or dispatch incoming data according to the receiver
 contract below.
 
+For ZMODEM, EOF confirmation can overtake outstanding recovery reads.
+Complete already-issued source callbacks even if `FileCompleted` has arrived;
+the sender discards obsolete bytes and defers the next file request until the
+reads are drained. Do not close a source while an outstanding read still uses it.
+
 XMODEM-G has `MaxBufferedBlocks`; WXMODEM retains its bounded window, and
 ZMODEM/legacy engines have byte-buffer limits. YMODEM's application-decision
 states do not buffer a new sequence of G-mode data packets. For asynchronous

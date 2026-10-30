@@ -109,7 +109,7 @@ loaded assemblies. Omit `--no-build` when changing asset selection.
   command arguments, stderr and hashes.
 
 The [testing guide](docs/testing.md) contains prerequisites, focused commands,
-CI behavior and the dated validation record: **759/759** deterministic tests
+CI behavior and the dated validation record: **771/771** deterministic tests
 for each asset selection and **156/156** native cases. Branches without a
 compatible native peer use independent wire vectors and scripted/paired
 fixtures; their evidence is listed separately.

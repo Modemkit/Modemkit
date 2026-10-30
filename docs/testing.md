@@ -133,11 +133,15 @@ every published package or a substitute for rerunning after code changes.
 | --- | ---: | ---: |
 | Xmodem.Protocol.Tests | 121 | 121 |
 | Ymodem.Protocol.Tests | 260 | 260 |
-| Zmodem.Protocol.Tests | 82 | 82 |
+| Zmodem.Protocol.Tests | 94 | 94 |
 | LegacyModem.Protocol.Tests | 90 | 90 |
 | Jmodem.Protocol.Tests | 53 | 53 |
 | ModemKit.IntegrationTests | 153 | 153 |
-| **Passed / total** | **759 / 759** | **759 / 759** |
+| **Passed / total** | **771 / 771** | **771 / 771** |
+
+The ZMODEM count includes 12 regressions added after a Linux CI run exposed
+late EOF confirmation during recovery. The new cases cover coalesced replies,
+pending reads, same-offset callbacks, cancellation and cross-file isolation.
 
 The complete native matrix passed **156/156**. A subsequent focused
 streaming/windowed check passed **4/4** after the final ZMODEM decoder changes.
@@ -164,6 +168,13 @@ uploads interoperability evidence. The
 [documentation workflow](../.github/workflows/docs.yml) separately stages the
 allowlisted Markdown and strictly validates the site and links on pull
 requests; only the default `main` branch can deploy to Pages.
+
+After the full native matrix, CI repeats streaming/windowed ZMODEM sends of
+0, 1 and 129 bytes twenty times (120 additional cases). These exercise
+startup/EOF timing on native process pipes; any failed case fails the step,
+with no automatic retry to hide failures. Deterministic sender regressions
+also cover late recovery requests followed by EOF confirmation, including
+responses coalesced into one transport read.
 
 Run the automation and documentation checks locally with Python 3.12:
 
