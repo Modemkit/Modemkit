@@ -1,7 +1,24 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>netstandard2.0</TargetFramework>
+        <TargetFrameworks>netstandard2.0;net10.0</TargetFrameworks>
+        <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+        <PackageId>ModemKit</PackageId>
+        <VersionPrefix>0.2.0</VersionPrefix>
+        <Authors>BalconyJH</Authors>
+        <Description>Transport-independent XMODEM, YMODEM, ZMODEM, JMODEM and historical modem transfer toolkit.</Description>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <PackageProjectUrl>https://github.com/Modemkit/Modemkit</PackageProjectUrl>
     </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="Xmodem.Protocol\Xmodem.Protocol.csproj" />
+        <ProjectReference Include="Ymodem.Protocol\Ymodem.Protocol.csproj" />
+        <ProjectReference Include="Zmodem.Protocol\Zmodem.Protocol.csproj" />
+        <ProjectReference Include="LegacyModem.Protocol\LegacyModem.Protocol.csproj" />
+        <ProjectReference Include="Jmodem.Protocol\Jmodem.Protocol.csproj" />
+        <None Include="README.md" Pack="true" PackagePath="\" />
+    </ItemGroup>
 
 </Project>

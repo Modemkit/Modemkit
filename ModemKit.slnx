@@ -1,4 +1,16 @@
 <Solution>
+  <Project Path="ModemKit.csproj" />
+  <Project Path="ModemKit.Testing/ModemKit.Testing.csproj" />
+  <Project Path="ModemKit.IntegrationTests/ModemKit.IntegrationTests.csproj" />
+  <Project Path="ModemKit.Interop/ModemKit.Interop.csproj" />
+  <Project Path="Xmodem.Protocol/Xmodem.Protocol.csproj" />
+  <Project Path="Xmodem.Protocol.Tests/Xmodem.Protocol.Tests.csproj" />
   <Project Path="Ymodem.Protocol.Tests/Ymodem.Protocol.Tests.csproj" />
   <Project Path="Ymodem.Protocol/Ymodem.Protocol.csproj" />
+  <Project Path="Zmodem.Protocol/Zmodem.Protocol.csproj" />
+  <Project Path="Zmodem.Protocol.Tests/Zmodem.Protocol.Tests.csproj" />
+  <Project Path="LegacyModem.Protocol/LegacyModem.Protocol.csproj" />
+  <Project Path="LegacyModem.Protocol.Tests/LegacyModem.Protocol.Tests.csproj" />
+  <Project Path="Jmodem.Protocol/Jmodem.Protocol.csproj" />
+  <Project Path="Jmodem.Protocol.Tests/Jmodem.Protocol.Tests.csproj" />
 </Solution>
