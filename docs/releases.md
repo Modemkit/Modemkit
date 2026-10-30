@@ -8,7 +8,7 @@ The repository has three separate paths:
 | Path | Trigger | Result |
 | --- | --- | --- |
 | CI | Pull requests and branch pushes | Tests, packages and interoperability evidence |
-| Documentation | Pull requests; deployment from the default `main` branch | Strict site build; GitHub Pages deployment on `main` |
+| Documentation | Pull requests; deployment from the default `main` branch | Strict Zensical build; GitHub Pages deployment on `main` |
 | Release | A pushed `vMAJOR.MINOR.PATCH[-prerelease]` tag | Versioned packages, exact changelog notes and GitHub Release; optional NuGet publishing |
 
 The release workflow remains named `.github/workflows/cd.yml` so an existing
@@ -62,8 +62,22 @@ It never silently substitutes the latest entry or Unreleased.
 
 ## Prepare a tagged release
 
+Before preparing a version, use this checklist:
+
+- [ ] Run both protocol asset selections and the automation tests.
+- [ ] Build the documentation with strict validation.
+- [ ] Review the user-facing changes and compatibility notes.
+- [ ] Verify the intended version and all six package identities.
+- [ ] Confirm the publishing account and trusted-publisher settings.
+
 Start from the reviewed, committed implementation on `main`. Use the actual
 next version; **0.3.0 below is an example**, not a release created by this work.
+
+!!! warning "A pushed version tag starts publication"
+
+    Review the exact changelog entry and source commit before pushing the tag.
+    Use the manual workflow with `publish = None` for an artifact-only preview.
+    Do not tag the example version simply to test the pipeline.
 
 ```console
 python scripts/changelog.py prepare 0.3.0
@@ -103,7 +117,7 @@ The read-only build job:
 1. Resolves the tag/manual version from environment values and validates it.
 2. Validates the changelog and runs the Python automation tests.
 3. Restores/builds .NET, runs both protocol asset selections, and builds the
-   documentation strictly.
+   Zensical documentation strictly with the pinned renderer.
 4. Packs all six NuGet packages with the same explicit release version.
 5. Checks package IDs/versions, the aggregate package's dependencies for both
    targets and each package's source commit, then creates a bundle with

@@ -3,8 +3,8 @@
 [Documentation index](README.md) | [Release process](releases.md) |
 [Testing](testing.md)
 
-The static documentation site is built from the Markdown already maintained in
-this repository. Its configured address is
+The Zensical documentation site is built from the Markdown already maintained
+in this repository. Its configured address is
 [modemkit.github.io/Modemkit](https://modemkit.github.io/Modemkit/). Creating or
 building this configuration does not publish the site; publication occurs only
 when the GitHub Pages workflow successfully deploys it.
@@ -17,55 +17,101 @@ Use Python 3.12, matching the workflow:
 python -m venv artifacts/docs-venv
 ```
 
-On Windows, use the virtual environment's Python directly:
+=== "Windows"
 
-```console
-artifacts\docs-venv\Scripts\python -m pip install -r requirements-docs.txt
-artifacts\docs-venv\Scripts\python -m unittest discover -s scripts/tests -p test_build_docs.py -v
-artifacts\docs-venv\Scripts\python scripts/build_docs.py
-```
+    Use the virtual environment's interpreter directly:
 
-On Linux or macOS:
+    ```powershell
+    artifacts\docs-venv\Scripts\python -m pip install -r requirements-docs.txt
+    artifacts\docs-venv\Scripts\python -m unittest discover -s scripts/tests -p test_build_docs.py -v
+    artifacts\docs-venv\Scripts\python scripts/build_docs.py
+    ```
 
-```console
-artifacts/docs-venv/bin/python -m pip install -r requirements-docs.txt
-artifacts/docs-venv/bin/python -m unittest discover -s scripts/tests -p test_build_docs.py -v
-artifacts/docs-venv/bin/python scripts/build_docs.py
-```
+=== "Linux / macOS"
 
-[requirements-docs.txt](../requirements-docs.txt) pins MkDocs to 1.6.1.
+    The virtual environment does not need to be activated:
+
+    ```bash
+    artifacts/docs-venv/bin/python -m pip install -r requirements-docs.txt
+    artifacts/docs-venv/bin/python -m unittest discover -s scripts/tests -p test_build_docs.py -v
+    artifacts/docs-venv/bin/python scripts/build_docs.py
+    ```
+
+[requirements-docs.txt](../requirements-docs.txt) pins Zensical to **0.0.73**,
+the release published on October 26, 2026. Its native configuration is
+[zensical.toml](../zensical.toml); MkDocs is no longer required.
 The build script stages the allowlisted pages under `artifacts/docs-source` and
 builds HTML under `artifacts/docs-site`. The strict build rejects missing
 pages, broken local anchors, invalid navigation and source links whose targets
-do not exist. Generated files stay in the ignored `artifacts` directory.
+do not exist.
 
-The script cleans only its two fixed output directories and requires its
-ownership marker before replacing an existing output. It refuses redirected
-paths, unmarked directories, and MkDocs configurations that change `docs_dir`
-or `site_dir`. Configuration inheritance and custom YAML tags are not accepted.
-These checks run before staging or cleanup. MkDocs' separate recursive cleanup
-is restricted to the same validated output by an explicit `--site-dir` argument.
-If an output directory was created by another
-tool, choose a different location for that unrelated work before building;
-do not add a marker to files that should be preserved.
+The two generated directories and Zensical's root `.cache/` stay ignored.
+Zensical 0.0.73 places its cache next to the configuration file; it does not
+provide a project-level cache-directory override. Every build uses
+`python -m zensical build --clean --strict --config-file zensical.toml` through
+the wrapper, preventing stale cached pages after staging changes.
+
+The wrapper requires an ownership marker before replacing an existing output
+or cache. It rejects redirected paths, unmarked directories, and configuration
+changes to the fixed `docs_dir` or `site_dir` before staging or cleanup.
+Zensical does not accept a `--site-dir` override, so the validated TOML file
+is the only renderer configuration. If a generated directory was created by
+another tool, preserve that unrelated work before resolving the conflict;
+do not add an ownership marker to files that should be preserved.
+
+!!! warning "Generated directories are not source folders"
+
+    Edit the original Markdown, not `artifacts/docs-source`,
+    `artifacts/docs-site` or `.cache`. Rebuilding replaces their generated
+    content. Never add an ownership marker to unrelated files.
 
 ## Preview while editing
 
-After installing dependencies, prepare the sources and run MkDocs with the
+After installing dependencies, prepare the sources and run Zensical with the
 same Python interpreter:
 
 ```console
 python scripts/build_docs.py --prepare-only
-python -m mkdocs serve --dev-addr 127.0.0.1:8000
+python -m zensical serve --config-file zensical.toml --dev-addr 127.0.0.1:8000
 ```
 
 Replace `python` with the virtual environment's path if it is not activated.
-Open the local URL printed by MkDocs. The server watches the generated staging
+Open the local URL printed by Zensical. The server watches the generated staging
 directory; after editing an original Markdown file, run `--prepare-only` again
 to refresh it. Edit the originals, because the next build replaces staged files.
+Use the wrapper's full build before publishing; preview is not a substitute for
+strict build validation.
 
 The configured `/Modemkit/` base path is included in generated canonical and
 navigation URLs. Page links are relative and work under the project site.
+
+## Site configuration and upgrades
+
+[zensical.toml](../zensical.toml) keeps the navigation, modern theme, teal color
+palette, system/light/dark toggle and Markdown rendering in one place.
+The site search is provided by Zensical, not a separate MkDocs plugin.
+Internal page and anchor validation are enabled under `[project.validation]`,
+and the wrapper always passes `--strict`.
+
+| Framework feature | Where it is used |
+| --- | --- |
+| Instant navigation, prefetch and progress | Internal page changes without a full reload |
+| Sticky section tabs, breadcrumbs and section indexes | Browse guides, protocols and test tools |
+| Search highlighting and table-of-contents tracking | Find APIs and navigate long reference pages |
+| Code copying, selection and annotations | Commands and annotated integration configuration |
+| Linked content tabs | Windows and Linux/macOS build commands |
+| Admonitions and collapsible details | Safety notes, compatibility limits and evidence layouts |
+| Mermaid diagrams | The host's queued event/action flow |
+| Icon cards | Task-oriented entry points in the documentation index |
+| Task lists | The release readiness checklist |
+| System/light/dark palette selection | Follow the device preference or choose an explicit mode |
+
+To upgrade the renderer, review the
+[Zensical releases](https://github.com/zensical/zensical/releases), update the
+exact version in `requirements-docs.txt`, reinstall and run the staging tests
+and full build. Check search, nested-page links, code blocks and narrow-screen
+navigation before deploying. The existing GitHub Pages artifact and deployment
+jobs do not depend on the renderer.
 
 ## Source mapping and links
 
@@ -83,7 +129,7 @@ code examples are preserved. Every rendered page also links to its original
 Markdown source; the license links to the original `LICENSE`.
 
 To add a page, add its source and staged path to the script's `PAGES` mapping,
-then add it to the navigation in [mkdocs.yml](../mkdocs.yml). A relative link to
+then add it to the navigation in [zensical.toml](../zensical.toml). A relative link to
 an unlisted Markdown page fails instead of publishing it implicitly. Run the
 tests and strict build after changing navigation or heading anchors.
 
@@ -113,7 +159,7 @@ releases. Concurrency serializes runs for `main`; newer pull-request runs may
 cancel older builds without interrupting a deployment.
 
 If the repository or project-site path changes, update `site_url`, `repo_url`
-and `repo_name` in `mkdocs.yml`, plus `REPOSITORY_URL` and `SOURCE_REF` in the
+and `repo_name` in `zensical.toml`, plus `REPOSITORY_URL` and `SOURCE_REF` in the
 staging script. If the default branch changes, update the workflow's branch
 guards as well.
 
@@ -125,10 +171,13 @@ guards as well.
 | Local Markdown link is not allowlisted | Add the page to the site explicitly, or use an intentional external reference. |
 | Missing anchor under strict validation | Update the link to match the rendered heading; then rebuild. |
 | Refusing to clean an unmarked or redirected output | Preserve the unrelated files and remove the path conflict; the builder does not clean arbitrary locations. |
+| Stale or missing output after a renderer upgrade | Reinstall the pinned requirements and run the wrapper, which cleans the owned cache before rebuilding. |
 | Pages configuration or deployment is denied | Check Settings > Pages, the `github-pages` environment policy, the selected branch and Actions permissions. |
 | Successful build but no deployment job | Pull requests and non-default/non-main manual runs are build-only by design. |
 
 Workflow behavior follows GitHub's
 [custom Pages workflow documentation](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages).
-Site validation settings follow the official
-[MkDocs configuration reference](https://www.mkdocs.org/user-guide/configuration/).
+Renderer behavior follows the official
+[Zensical build documentation](https://zensical.org/docs/usage/build/),
+[configuration guide](https://zensical.org/docs/setup/basics/) and
+[validation reference](https://zensical.org/docs/setup/validation/).

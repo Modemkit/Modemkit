@@ -27,6 +27,21 @@ control bytes. Preserve their order and retain partial input between reads.
 
 ## Host event loop
 
+```mermaid
+flowchart TD
+    Peer["Serial port or socket"] --> Input["Peer bytes and timeout events"]
+    Input --> Queue["Serialized event queue"]
+    Queue --> Engine["Advance(event)"]
+    Engine --> Actions["Ordered actions"]
+    Actions --> Wire["Encode and write bytes"]
+    Wire --> Peer
+    Actions --> Source["Read requested source bytes"]
+    Source --> Queue
+    Actions --> Store["Persist received bytes"]
+    Store --> Accepted["Enqueue acceptance after persistence"]
+    Accepted --> Queue
+```
+
 1. Feed the next peer event or queued application response into `Advance`.
 2. Execute the returned actions in their original order.
 3. On a source request, read the requested bytes and enqueue the corresponding
@@ -45,6 +60,12 @@ The bytes returned in an action still need to be written by the host. Handle
 short transport writes, cancellation and I/O failures in that layer. Flush
 final ACK/OO/control output before closing the transport, even when the same
 step also returns `Complete`.
+
+!!! warning "Persist before acknowledging"
+
+    Returning a storage-acceptance event commits that data to the protocol.
+    Finish the write first, and enqueue the response instead of recursively
+    calling `Advance`.
 
 ## Configure a branch
 
@@ -110,14 +131,19 @@ see the walkthrough below.
 using Zmodem.Protocol;
 
 var options = new ZModemOptions(
-    profile: ZModemProfile.ZedZap,
+    profile: ZModemProfile.ZedZap, // (1)!
     blockSize: 8192,
-    flowControl: ZModemFlowControl.Windowed,
+    flowControl: ZModemFlowControl.Windowed, // (2)!
     windowSize: 16384,
     acknowledgementInterval: 4096);
 var sender = new ZModemSender(options);
 var receiver = new ZModemReceiver(options);
 ```
+
+1. The profile raises the decoder's maximum accepted subpacket size; the peer
+   must support it too. It does not perform a Fido mailer handshake.
+2. Windowed sending is negotiated from peer capabilities. Keep servicing peer
+   input while asynchronous source reads are outstanding.
 
 Both peers must support the selected maximum subpacket size. `Profile`
 controls the decoder limit; `BlockSize` controls outgoing packetization.

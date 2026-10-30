@@ -7,7 +7,39 @@ transport, file access and clock, then executes the actions returned by
 `Advance(...)`. The five protocol libraries target `netstandard2.0` and
 `net10.0`; the repository's test hosts and interoperability runner use .NET 10.
 
+The published site is built with Zensical from these same Markdown sources.
+Use the site search to find a protocol or API, the section navigation to browse
+guides, and the theme toggle to switch between light and dark appearance.
+
 ## Start here
+
+<div class="grid cards" markdown>
+
+- :lucide-git-branch: **Choose a protocol**
+
+    Compare wire formats, branches and peer compatibility.
+
+    [Explore the branch matrix](protocol-branches.md)
+
+- :lucide-cable: **Connect an engine**
+
+    Route transport bytes, source reads and storage decisions.
+
+    [Build the host event loop](integration.md#host-event-loop)
+
+- :lucide-flask-conical: **Prove interoperability**
+
+    Run deterministic faults and the independent lrzsz matrix.
+
+    [Read the testing guide](testing.md)
+
+- :lucide-package-check: **Ship a release**
+
+    Prepare exact release notes, validate packages and publish.
+
+    [Follow the release process](releases.md)
+
+</div>
 
 | Task | Guide |
 | --- | --- |

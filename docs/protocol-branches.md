@@ -8,6 +8,12 @@ an enum. Every implemented branch has sender/receiver state machines and byte
 fixtures. Aliases share an implementation only when they describe the same
 wire protocol.
 
+!!! info "Implementation coverage is not the same as native interoperability"
+
+    The validation column distinguishes an independently executed lrzsz peer
+    from wire vectors and deterministic fixtures. Proprietary ZMODEM-90 modes
+    are not implied by support for public legacy extensions.
+
 ## Implemented branches
 
 | Branch | Selection / API | Distinct wire behavior | Validation |

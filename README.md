@@ -117,10 +117,14 @@ fixtures; their evidence is listed separately.
 ## Documentation and releases
 
 The [documentation workflow](.github/workflows/docs.yml) builds this Markdown
-as a searchable MkDocs site and deploys it to GitHub Pages from `main`.
+as a searchable Zensical site and deploys it to GitHub Pages from `main`.
 Pull requests run the strict build and link checks. See the
 [deployment guide](docs/deployment.md) for local previews and the one-time
 repository Pages configuration.
+
+The site uses [zensical.toml](zensical.toml) with section navigation, code
+copying and light/dark themes. Its renderer version is pinned in
+[requirements-docs.txt](requirements-docs.txt).
 
 [CHANGELOG.md](CHANGELOG.md) keeps upcoming work under `Unreleased` and imports
 historical releases from actual Git tags using `git-changelog`. A version tag

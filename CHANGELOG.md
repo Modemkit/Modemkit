@@ -23,12 +23,17 @@ See [the release guide](docs/releases.md) for the update and publication command
   retained wire captures, exit codes and content hashes.
 - Documentation navigation, integration/testing guides and a source-linked
   branch matrix that distinguishes implemented behavior and compatibility limits.
-- Strict MkDocs site builds and GitHub Pages deployment through GitHub Actions.
+- Strict Zensical site builds and GitHub Pages deployment through GitHub Actions.
 - Version-specific GitHub Release notes, package checksums, separate optional
   NuGet trusted publishing and a git-changelog-assisted changelog workflow.
 
 ### Changed
 
+- Documentation now uses Zensical 0.0.73 and native `zensical.toml`, preserving
+  page URLs, strict validation and guarded build outputs with a modern,
+  searchable interface and system/light/dark themes. Guides use instant
+  navigation, content tabs, annotated code, callouts, collapsible details,
+  Mermaid diagrams, navigation cards and release checklists.
 - Application and transport work is represented by ordered events/actions,
   with explicit timeout, buffering, persistence and closing-grace contracts.
 - YMODEM send actions expose negotiated integrity; packet buffers own their

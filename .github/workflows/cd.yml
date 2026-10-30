@@ -86,7 +86,7 @@ jobs:
         run: >-
           dotnet test ModemKit.slnx --configuration Release --no-restore
           -p:ProtocolUnderTestTargetFramework=netstandard2.0 "-p:Version=$RELEASE_VERSION"
-      - name: Build strict documentation
+      - name: Build strict Zensical documentation
         run: python scripts/build_docs.py
       - name: Pack all six packages
         env:

@@ -69,6 +69,7 @@ artifacts/
 __pycache__/
 *.py[cod]
 .venv/
+.cache/
 output/playwright/
 
 # ASP.NET Scaffolding

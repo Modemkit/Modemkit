@@ -32,13 +32,13 @@ jobs:
           cache: pip
           cache-dependency-path: requirements-docs.txt
 
-      - name: Install documentation dependencies
+      - name: Install pinned Zensical
         run: python -m pip install -r requirements-docs.txt
 
       - name: Test documentation staging and validation
         run: python -m unittest discover -s scripts/tests -p test_build_docs.py -v
 
-      - name: Build the strict documentation site
+      - name: Build the strict Zensical site
         run: python scripts/build_docs.py
 
       - name: Upload the Pages site

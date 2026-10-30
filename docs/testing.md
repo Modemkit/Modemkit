@@ -104,15 +104,21 @@ interoperability passes.
 Each run creates `artifacts/interop-<UTC timestamp>-<id>/`, with a cumulative
 `results.json`. Every case retains:
 
-```text
-<protocol>-<managed role>-<size>/
-  command.json
-  to-native.bin
-  from-native.bin
-  native-stderr.txt
-  source/payload.bin
-  received/payload.bin
-```
+??? example "Inspect a retained case directory"
+
+    ```text
+    <protocol>-<managed role>-<size>/
+      command.json
+      to-native.bin
+      from-native.bin
+      native-stderr.txt
+      source/payload.bin
+      received/payload.bin
+    ```
+
+    Check `command.json` for the exact peer arguments and deadlines. Compare
+    the binary captures before deciding whether a failure belongs to the
+    managed engine, the native peer or the host adapter.
 
 Y/Z data must match exactly. XMODEM checks the exact source prefix plus bounded
 SUB padding, so source and received hashes can legitimately differ. Stderr
@@ -166,7 +172,7 @@ helpers and checks the changelog, then restores/builds the solution, runs both
 asset selections, creates packages, installs its independent lrzsz peer and
 uploads interoperability evidence. The
 [documentation workflow](../.github/workflows/docs.yml) separately stages the
-allowlisted Markdown and strictly validates the site and links on pull
+allowlisted Markdown and strictly builds the Zensical site and validates links on pull
 requests; only the default `main` branch can deploy to Pages.
 
 After the full native matrix, CI repeats streaming/windowed ZMODEM sends of
@@ -185,8 +191,8 @@ python scripts/changelog.py check
 python scripts/build_docs.py
 ```
 
-These tests cover guarded documentation output directories, link rewriting,
-strict site validation, changelog parsing/preparation, release metadata,
+These tests cover guarded documentation output/cache directories, link rewriting,
+strict Zensical validation, changelog parsing/preparation, release metadata,
 package identities, dependency versions and checksums. Publishing commands
 are mocked in the tests.
 
