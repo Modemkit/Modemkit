@@ -1,0 +1,67 @@
+site_name: ModemKit
+site_description: Transport-independent modem file transfer protocols for .NET
+site_url: https://modemkit.github.io/Modemkit/
+repo_url: https://github.com/Modemkit/Modemkit
+repo_name: Modemkit/Modemkit
+edit_uri: ""
+
+docs_dir: artifacts/docs-source
+site_dir: artifacts/docs-site
+use_directory_urls: true
+strict: true
+
+theme:
+  name: mkdocs
+  color_mode: light
+  user_color_mode_toggle: true
+  nav_style: light
+  navigation_depth: 3
+  highlightjs: true
+  hljs_languages:
+    - csharp
+    - python
+    - yaml
+    - bash
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - tables
+  - fenced_code
+  - toc:
+      permalink: true
+
+validation:
+  nav:
+    omitted_files: warn
+    not_found: warn
+    absolute_links: warn
+  links:
+    not_found: warn
+    anchors: warn
+    absolute_links: warn
+    unrecognized_links: warn
+
+nav:
+  - Home: index.md
+  - Guides:
+      - Documentation index: docs/index.md
+      - Protocol branches: docs/protocol-branches.md
+      - Integration: docs/integration.md
+      - Testing: docs/testing.md
+      - Releases: docs/releases.md
+      - Documentation deployment: docs/deployment.md
+  - Protocols:
+      - XMODEM and WXMODEM: Xmodem.Protocol/index.md
+      - YMODEM: Ymodem.Protocol/index.md
+      - ZMODEM: Zmodem.Protocol/index.md
+      - ZMODEM reference notes: Zmodem.Protocol/PROTOCOL_NOTES.md
+      - Historical protocols: LegacyModem.Protocol/index.md
+      - JMODEM: Jmodem.Protocol/index.md
+  - Test tools:
+      - Deterministic fixtures: ModemKit.Testing/index.md
+      - Native interoperability: ModemKit.Interop/index.md
+  - Changelog: CHANGELOG.md
+  - License: license.md

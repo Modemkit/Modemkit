@@ -1,0 +1,7 @@
+convention = "basic"
+include-all = true
+sections = ["add", "fix", "change", "remove", "merge", "doc"]
+parse-refs = true
+provider = "github"
+template = "keepachangelog"
+versioning = "semver"

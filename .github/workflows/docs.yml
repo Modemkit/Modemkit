@@ -1,0 +1,85 @@
+name: documentation
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: documentation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    name: Build documentation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-docs.txt
+
+      - name: Install documentation dependencies
+        run: python -m pip install -r requirements-docs.txt
+
+      - name: Test documentation staging and validation
+        run: python -m unittest discover -s scripts/tests -p test_build_docs.py -v
+
+      - name: Build the strict documentation site
+        run: python scripts/build_docs.py
+
+      - name: Upload the Pages site
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && github.event.repository.default_branch == 'main'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: artifacts/docs-site
+
+  deploy:
+    name: Deploy documentation
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && github.event.repository.default_branch == 'main'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Verify this run still matches main
+        id: freshness
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SHA: ${{ github.sha }}
+        run: |
+          current_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha)"
+          if [ "$current_sha" = "$EXPECTED_SHA" ]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "current=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Skipping deployment because this run no longer matches main."
+          fi
+
+      - name: Read the Pages configuration
+        if: steps.freshness.outputs.current == 'true'
+        uses: actions/configure-pages@v5
+
+      - name: Deploy the validated site
+        if: steps.freshness.outputs.current == 'true'
+        id: deployment
+        uses: actions/deploy-pages@v4

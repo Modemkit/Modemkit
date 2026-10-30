@@ -8,20 +8,48 @@ on:
     tags-ignore:
       - "v*"
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.x
           cache: true
           cache-dependency-path: |
-            Ymodem.Protocol/Ymodem.Protocol.csproj
-            Ymodem.Protocol.Tests/Ymodem.Protocol.Tests.csproj
+            Directory.Build.props
+            **/*.csproj
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements-docs.txt
+            requirements-release.txt
+
+      - name: Install automation tools
+        run: python -m pip install -r requirements-docs.txt -r requirements-release.txt
+
+      - name: Test documentation and release helpers
+        run: python -m unittest discover -s scripts/tests -v
+
+      - name: Validate changelog
+        run: python scripts/changelog.py check
 
       - name: Restore
         run: dotnet restore ModemKit.slnx
@@ -30,7 +58,27 @@ jobs:
         run: dotnet build ModemKit.slnx --configuration Release --no-restore
 
       - name: Test net10.0 asset
-        run: dotnet test Ymodem.Protocol.Tests/Ymodem.Protocol.Tests.csproj --configuration Release --no-build
+        run: dotnet test ModemKit.slnx --configuration Release --no-build
 
       - name: Test netstandard2.0 asset
-        run: dotnet test Ymodem.Protocol.Tests/Ymodem.Protocol.Tests.csproj --configuration Release --no-restore /p:ProtocolUnderTestTargetFramework=netstandard2.0
+        run: dotnet test ModemKit.slnx --configuration Release --no-restore /p:ProtocolUnderTestTargetFramework=netstandard2.0
+
+      - name: Verify package creation
+        run: dotnet pack ModemKit.slnx --configuration Release --no-build --output artifacts/packages
+
+      - name: Install independent protocol peer
+        run: sudo apt-get update && sudo apt-get install --yes lrzsz
+
+      - name: Test interoperability with lrzsz
+        run: dotnet run --project ModemKit.Interop/ModemKit.Interop.csproj --configuration Release --no-build -- --lrzsz-directory /usr/bin --timeout-seconds 15
+
+      - name: Upload validation artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: modemkit-validation
+          path: |
+            artifacts/interop-*/**
+            artifacts/packages/*.nupkg
+          if-no-files-found: ignore
+          retention-days: 14

@@ -1,132 +1,183 @@
 name: cd
 
 on:
+  push:
+    tags:
+      - "v*"
   workflow_dispatch:
     inputs:
+      version:
+        description: Optional explicit SemVer; required for manual NuGet publishing
+        required: false
+        type: string
       publish:
-        description: Publish target
+        description: Publish target for a manual run
         required: true
         default: None
         type: choice
         options:
           - None
           - NuGet
-      version:
-        description: Optional version override for manual runs (for example 1.0.0 or 1.0.0-beta.1)
-        required: false
-        type: string
-  push:
-    tags:
-      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  release:
+  build:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     permissions:
-      contents: write
-      id-token: write
-    env:
-      NUGET_PACKAGE_SOURCE: https://api.nuget.org/v3/index.json
-
+      contents: read
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      tag: ${{ steps.meta.outputs.tag }}
+      commit: ${{ steps.meta.outputs.commit }}
+      is_release: ${{ steps.meta.outputs.is_release }}
+      publish_nuget: ${{ steps.meta.outputs.publish_nuget }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-
-      - uses: actions/setup-dotnet@v4
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements-release.txt
+            requirements-docs.txt
+      - name: Install pinned release and documentation tools
+        run: python -m pip install --requirement requirements-release.txt --requirement requirements-docs.txt
+      - name: Validate release metadata and notes
+        id: meta
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_PUBLISH: ${{ inputs.publish }}
+          NUGET_USER: ${{ vars.NUGET_USER }}
+        run: python scripts/release.py prepare --output-dir artifacts/release
+      - name: Test release tooling
+        run: python -m unittest discover --start-directory scripts/tests --verbose
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.x
           cache: true
           cache-dependency-path: |
             Directory.Build.props
-            Ymodem.Protocol/Ymodem.Protocol.csproj
-            Ymodem.Protocol.Tests/Ymodem.Protocol.Tests.csproj
-
+            **/*.csproj
       - name: Restore
         run: dotnet restore ModemKit.slnx
-
-      - id: meta
-        name: Resolve version
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          is_release=false
-          input_version="${{ github.event.inputs.version }}"
-          input_version="${input_version#v}"
-
-          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-            is_release=true
-            tag="${GITHUB_REF_NAME}"
-            version="${tag#v}"
-          elif [[ -n "${input_version}" ]]; then
-            version="${input_version}"
-            tag="v${version}"
-          else
-            latest_tag="$(git tag --list 'v*' --sort=-version:refname | head -n 1)"
-            if [[ -n "${latest_tag}" ]]; then
-              base_version="${latest_tag#v}"
-              base_version="${base_version%%-*}"
-            else
-              base_version="0.1.0"
-            fi
-
-            version="${base_version}-ci.${GITHUB_RUN_NUMBER}"
-            tag="v${version}"
-          fi
-
-          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
-          echo "version=${version}" >> "${GITHUB_OUTPUT}"
-          echo "is_release=${is_release}" >> "${GITHUB_OUTPUT}"
-
-      - name: Test
-        run: dotnet test Ymodem.Protocol.Tests/Ymodem.Protocol.Tests.csproj --configuration Release --no-restore -p:Version=${{ steps.meta.outputs.version }}
-
-      - name: Pack
-        run: |
-          dotnet pack Ymodem.Protocol/Ymodem.Protocol.csproj \
-            --configuration Release \
-            --no-restore \
-            --output "${{ github.workspace }}/artifacts" \
-            -p:ContinuousIntegrationBuild=true \
-            -p:Version=${{ steps.meta.outputs.version }} \
-            -p:PackageVersion=${{ steps.meta.outputs.version }} \
-            -p:RepositoryBranch=${GITHUB_REF_NAME} \
-            -p:RepositoryCommit=${GITHUB_SHA}
-
-      - name: Upload package artifacts
-        uses: actions/upload-artifact@v4
+      - name: Build both target framework assets
+        env:
+          RELEASE_VERSION: ${{ steps.meta.outputs.version }}
+          RELEASE_COMMIT: ${{ steps.meta.outputs.commit }}
+        run: >-
+          dotnet build ModemKit.slnx --configuration Release --no-restore
+          "-p:Version=$RELEASE_VERSION" "-p:PackageVersion=$RELEASE_VERSION"
+          "-p:RepositoryCommit=$RELEASE_COMMIT" -p:ContinuousIntegrationBuild=true
+      - name: Test net10.0 asset
+        run: dotnet test ModemKit.slnx --configuration Release --no-build
+      - name: Test netstandard2.0 asset
+        env:
+          RELEASE_VERSION: ${{ steps.meta.outputs.version }}
+        run: >-
+          dotnet test ModemKit.slnx --configuration Release --no-restore
+          -p:ProtocolUnderTestTargetFramework=netstandard2.0 "-p:Version=$RELEASE_VERSION"
+      - name: Build strict documentation
+        run: python scripts/build_docs.py
+      - name: Pack all six packages
+        env:
+          RELEASE_VERSION: ${{ steps.meta.outputs.version }}
+          RELEASE_COMMIT: ${{ steps.meta.outputs.commit }}
+        run: >-
+          dotnet pack ModemKit.slnx --configuration Release --no-restore
+          --output artifacts/release -p:ContinuousIntegrationBuild=true
+          "-p:Version=$RELEASE_VERSION" "-p:PackageVersion=$RELEASE_VERSION"
+          "-p:RepositoryCommit=$RELEASE_COMMIT"
+      - name: Validate packages and create checksum manifest
+        env:
+          RELEASE_VERSION: ${{ steps.meta.outputs.version }}
+          RELEASE_COMMIT: ${{ steps.meta.outputs.commit }}
+        run: python scripts/release.py bundle --directory artifacts/release
+      - uses: actions/upload-artifact@v7
         with:
-          name: ymodem-protocol-${{ steps.meta.outputs.version }}
-          path: artifacts/*.nupkg
+          name: modemkit-${{ steps.meta.outputs.version }}
+          path: artifacts/release/*
           if-no-files-found: error
 
-      - name: Validate NuGet trusted publishing config
-        if: ${{ steps.meta.outputs.is_release == 'true' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'NuGet') }}
-        shell: bash
-        run: |
-          set -euo pipefail
+  github-release:
+    needs: build
+    if: needs.build.outputs.is_release == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ needs.build.outputs.commit }}
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --requirement requirements-release.txt
+      - uses: actions/download-artifact@v8
+        with:
+          name: modemkit-${{ needs.build.outputs.version }}
+          path: artifacts/release
+      - name: Upload complete draft and then publish GitHub Release
+        env:
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          RELEASE_COMMIT: ${{ needs.build.outputs.commit }}
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/release.py github --directory artifacts/release
 
-          if [[ -z "${{ vars.NUGET_USER }}" ]]; then
-            echo "Repository variable NUGET_USER is required for NuGet/login@v1."
-            exit 1
-          fi
-
-      - name: NuGet login
-        if: ${{ steps.meta.outputs.is_release == 'true' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'NuGet') }}
+  nuget:
+    needs: build
+    if: needs.build.outputs.publish_nuget == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ needs.build.outputs.commit }}
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --requirement requirements-release.txt
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/download-artifact@v8
+        with:
+          name: modemkit-${{ needs.build.outputs.version }}
+          path: artifacts/release
+      - name: Verify release bundle before requesting a publishing token
+        env:
+          RELEASE_VERSION: ${{ needs.build.outputs.version }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          RELEASE_COMMIT: ${{ needs.build.outputs.commit }}
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/release.py verify --directory artifacts/release
+      - name: NuGet trusted publishing login
         uses: NuGet/login@v1
         id: login
         with:
           user: ${{ vars.NUGET_USER }}
-
-      - name: Publish the package to nuget.org
-        if: ${{ steps.meta.outputs.is_release == 'true' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'NuGet') }}
-        run: dotnet nuget push "artifacts/*.nupkg" --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --source "${{ env.NUGET_PACKAGE_SOURCE }}" --skip-duplicate
-
-      - name: Create GitHub release
-        uses: softprops/action-gh-release@v2
-        if: ${{ steps.meta.outputs.is_release == 'true' }}
-        with:
-          tag_name: ${{ steps.meta.outputs.tag }}
-          generate_release_notes: true
-          files: artifacts/*.nupkg
+      - name: Publish exactly the six validated packages
+        env:
+          RELEASE_VERSION: ${{ needs.build.outputs.version }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          RELEASE_COMMIT: ${{ needs.build.outputs.commit }}
+          GH_TOKEN: ${{ github.token }}
+          NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
+        run: python scripts/release.py nuget --directory artifacts/release
