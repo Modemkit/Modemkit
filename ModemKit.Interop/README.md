@@ -42,7 +42,11 @@ All options require a value:
 | `--artifacts` | `artifacts` | Parent for a unique evidence directory |
 | `--wsl-distribution` | `Ubuntu` | Windows WSL distribution |
 | `--timeout-seconds` | `30` | Hard per-case wall-clock deadline |
-| `--idle-timeout-ms` | `1000` | Managed protocol retry timer |
+| `--idle-timeout-ms` | `2000` | Managed protocol retry timer |
+
+The default retry interval exceeds lrzsz's one-second X/YMODEM EOT quiet
+check. Intervals at or below one second can repeatedly interrupt that check
+and exhaust retries even after every data block has been acknowledged.
 
 For example, test CRC16 and CRC32 ZMODEM in both directions:
 

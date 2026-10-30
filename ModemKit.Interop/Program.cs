@@ -23,7 +23,7 @@ internal static class Program
                   --artifacts PATH               (default: artifacts)
                   --wsl-distribution NAME        (Windows only; default: Ubuntu)
                   --timeout-seconds NUMBER       (per case; default: 30)
-                  --idle-timeout-ms NUMBER        (protocol retry timer; default: 1000)
+                  --idle-timeout-ms NUMBER        (protocol retry timer; default: 2000)
                 YMODEM-G and YMODEM checksum run native sz -> managed receiver only.
                 """);
             return 0;
@@ -126,7 +126,7 @@ internal static class Program
                 var timer = Task.Delay(settings.IdleTimeoutMilliseconds, deadline.Token);
                 var completed = await Task.WhenAny(read, timer).ConfigureAwait(false);
                 deadline.Token.ThrowIfCancellationRequested();
-                if (completed == read)
+                if (completed == read || read.IsCompleted)
                 {
                     var count = await read.ConfigureAwait(false);
                     if (count == 0)
@@ -404,7 +404,8 @@ internal static class Program
                 ArtifactsDirectory = Path.GetFullPath(values.GetValueOrDefault("--artifacts", "artifacts")),
                 WslDistribution = values.GetValueOrDefault("--wsl-distribution", "Ubuntu"),
                 TimeoutSeconds = ParseNumber(values.GetValueOrDefault("--timeout-seconds", "30"), 1, 600, "timeout-seconds"),
-                IdleTimeoutMilliseconds = ParseNumber(values.GetValueOrDefault("--idle-timeout-ms", "1000"), 100, 60000, "idle-timeout-ms")
+                // lrzsz needs a one-second quiet interval before accepting X/Y EOT.
+                IdleTimeoutMilliseconds = ParseNumber(values.GetValueOrDefault("--idle-timeout-ms", "2000"), 100, 60000, "idle-timeout-ms")
             };
         }
 

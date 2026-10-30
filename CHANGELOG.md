@@ -39,6 +39,8 @@ See [the release guide](docs/releases.md) for the update and publication command
 
 ### Fixed
 
+- The native interoperability runner's retry timer racing lrzsz's one-second
+  X/YMODEM EOT quiet check on Linux process pipes.
 - Lost header/data/final acknowledgements, truncated frames, sequence rollover,
   empty files, premature EOF and bounded recovery across supported profiles.
 - SEAlink partial old-window input consuming the RESYNC acknowledgement.
