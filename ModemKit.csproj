@@ -19,6 +19,13 @@
         <ProjectReference Include="LegacyModem.Protocol\LegacyModem.Protocol.csproj" />
         <ProjectReference Include="Jmodem.Protocol\Jmodem.Protocol.csproj" />
         <None Include="README.md" Pack="true" PackagePath="\" />
+        <None Include="CHANGELOG.md" Pack="true" PackagePath="\" />
+        <None Include="docs\protocol-branches.md" Pack="true" PackagePath="docs\" />
+        <None Include="docs\README.md" Pack="true" PackagePath="docs\" />
+        <None Include="docs\integration.md" Pack="true" PackagePath="docs\" />
+        <None Include="docs\testing.md" Pack="true" PackagePath="docs\" />
+        <None Include="docs\deployment.md" Pack="true" PackagePath="docs\" />
+        <None Include="docs\releases.md" Pack="true" PackagePath="docs\" />
     </ItemGroup>
 
 </Project>
