@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <ExpectedProtocolTargetFramework Condition="'$(ProtocolUnderTestTargetFramework)' == '' Or '$(ProtocolUnderTestTargetFramework)' == 'net10.0'">.NETCoreApp,Version=v10.0</ExpectedProtocolTargetFramework>
+    <ExpectedProtocolTargetFramework Condition="'$(ProtocolUnderTestTargetFramework)' == 'netstandard2.0'">.NETStandard,Version=v2.0</ExpectedProtocolTargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <Using Include="Xunit" />
+    <AssemblyMetadata Include="ExpectedProtocolTargetFramework" Value="$(ExpectedProtocolTargetFramework)" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ModemKit.Testing\ModemKit.Testing.csproj" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(ProtocolUnderTestTargetFramework)' == ''">
+    <ProjectReference Include="..\Xmodem.Protocol\Xmodem.Protocol.csproj" />
+    <ProjectReference Include="..\Ymodem.Protocol\Ymodem.Protocol.csproj" />
+    <ProjectReference Include="..\Zmodem.Protocol\Zmodem.Protocol.csproj" />
+    <ProjectReference Include="..\LegacyModem.Protocol\LegacyModem.Protocol.csproj" />
+    <ProjectReference Include="..\Jmodem.Protocol\Jmodem.Protocol.csproj" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(ProtocolUnderTestTargetFramework)' != ''">
+    <ProjectReference Include="..\Xmodem.Protocol\Xmodem.Protocol.csproj"
+                      SetTargetFramework="TargetFramework=$(ProtocolUnderTestTargetFramework)" />
+    <ProjectReference Include="..\Ymodem.Protocol\Ymodem.Protocol.csproj"
+                      SetTargetFramework="TargetFramework=$(ProtocolUnderTestTargetFramework)" />
+    <ProjectReference Include="..\Zmodem.Protocol\Zmodem.Protocol.csproj"
+                      SetTargetFramework="TargetFramework=$(ProtocolUnderTestTargetFramework)" />
+    <ProjectReference Include="..\LegacyModem.Protocol\LegacyModem.Protocol.csproj"
+                      SetTargetFramework="TargetFramework=$(ProtocolUnderTestTargetFramework)" />
+    <ProjectReference Include="..\Jmodem.Protocol\Jmodem.Protocol.csproj"
+                      SetTargetFramework="TargetFramework=$(ProtocolUnderTestTargetFramework)" />
+  </ItemGroup>
+</Project>
