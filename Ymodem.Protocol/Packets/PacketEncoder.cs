@@ -24,6 +24,12 @@ namespace Ymodem.Protocol
 
         public byte[] Encode(YModemPacket packet)
         {
+            return Encode(packet, YModemIntegrity.Crc16);
+        }
+
+        public byte[] Encode(YModemPacket packet, YModemIntegrity integrity)
+        {
+            YModemIntegrityChecks.Validate(integrity);
             if (packet == null)
             {
                 throw new ArgumentNullException(nameof(packet));
@@ -32,19 +38,19 @@ namespace Ymodem.Protocol
             switch (packet)
             {
                 case YModemPacket.Header header:
-                    return BuildHeaderFrame(header.File, header.BlockSize);
+                    return BuildHeaderFrame(header.File, header.BlockSize, integrity);
                 case YModemPacket.Data data:
-                    return BuildDataFrame(data.BlockNumber, data.Payload, data.DataLength, data.BlockSize == 0 ? YModemBlockSizing.GetConfiguredBlockSize(_blockOptions.Mode) : data.BlockSize);
+                    return BuildDataFrame(data.BlockNumber, data.Payload, data.DataLength, data.BlockSize == 0 ? YModemBlockSizing.GetConfiguredBlockSize(_blockOptions.Mode) : data.BlockSize, integrity);
                 case YModemPacket.Eot _:
                     return new[] { YModemControlBytes.Eot };
                 case YModemPacket.BatchTrailer _:
-                    return BuildEmptyHeaderFrame();
+                    return BuildFrame(0, new byte[128], 128, integrity);
                 default:
                     throw new InvalidOperationException("Unsupported packet type: " + packet.GetType().FullName + ".");
             }
         }
 
-        private byte[] BuildHeaderFrame(YModemFileDescriptor file, int blockSize)
+        private byte[] BuildHeaderFrame(YModemFileDescriptor file, int blockSize, YModemIntegrity integrity)
         {
             foreach (var ch in file.FileName)
             {
@@ -67,15 +73,10 @@ namespace Ymodem.Protocol
             }
 
             Buffer.BlockCopy(headerBytes, 0, payload, 0, headerBytes.Length);
-            return BuildFrame(0, payload, resolvedBlockSize);
+            return BuildFrame(0, payload, resolvedBlockSize, integrity);
         }
 
-        private static byte[] BuildEmptyHeaderFrame()
-        {
-            return BuildFrame(0, new byte[128], 128);
-        }
-
-        private static byte[] BuildDataFrame(int blockNumber, byte[] data, int dataLength, int blockSize)
+        private static byte[] BuildDataFrame(int blockNumber, byte[] data, int dataLength, int blockSize, YModemIntegrity integrity)
         {
             var payload = new byte[blockSize];
             if (dataLength > 0)
@@ -88,21 +89,29 @@ namespace Ymodem.Protocol
                 payload[index] = YModemControlBytes.CpmEof;
             }
 
-            return BuildFrame(blockNumber, payload, blockSize);
+            return BuildFrame(blockNumber, payload, blockSize, integrity);
         }
 
-        private static byte[] BuildFrame(int blockNumber, byte[] payload, int blockSize)
+        private static byte[] BuildFrame(int blockNumber, byte[] payload, int blockSize, YModemIntegrity integrity)
         {
-            var frame = new byte[blockSize + 5];
+            var frame = new byte[blockSize + (integrity == YModemIntegrity.Crc16 ? 5 : 4)];
             frame[0] = blockSize == 128 ? YModemControlBytes.Soh : YModemControlBytes.Stx;
             frame[1] = unchecked((byte)blockNumber);
             frame[2] = unchecked((byte)(255 - frame[1]));
 
             Buffer.BlockCopy(payload, 0, frame, 3, blockSize);
 
-            var crc = ComputeCrc16(payload, 0, blockSize);
-            frame[blockSize + 3] = (byte)(crc >> 8);
-            frame[blockSize + 4] = (byte)(crc & 0xFF);
+            if (integrity == YModemIntegrity.Checksum)
+            {
+                frame[blockSize + 3] = YModemIntegrityChecks.Checksum(payload, 0, blockSize);
+            }
+            else
+            {
+                var crc = ComputeCrc16(payload, 0, blockSize);
+                frame[blockSize + 3] = (byte)(crc >> 8);
+                frame[blockSize + 4] = (byte)(crc & 0xFF);
+            }
+
             return frame;
         }
 

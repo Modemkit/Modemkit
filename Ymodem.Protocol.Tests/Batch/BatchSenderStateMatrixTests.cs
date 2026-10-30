@@ -19,11 +19,11 @@ namespace Ymodem.Protocol.Tests
         }
 
         [Theory]
-        [InlineData("header", (byte)0x43, "Expected ACK or NAK after file header.")]
-        [InlineData("data_start", (byte)0x06, "Expected receiver CRC request before first data block.")]
-        [InlineData("first_eot", (byte)0x06, "Expected NAK after first EOT.")]
-        [InlineData("second_eot", (byte)0x43, "Expected ACK after second EOT.")]
-        [InlineData("next_header", (byte)0x06, "Expected receiver CRC request before next file header or trailer.")]
+        [InlineData("header", (byte)0x55, "Expected ACK or NAK after file header.")]
+        [InlineData("data_start", (byte)0x55, "Expected receiver CRC request before first data block.")]
+        [InlineData("first_eot", (byte)0x55, "Expected NAK after first EOT.")]
+        [InlineData("second_eot", (byte)0x55, "Expected ACK after second EOT.")]
+        [InlineData("next_header", (byte)0x55, "Expected receiver CRC request before next file header or trailer.")]
         [InlineData("trailer", (byte)0x18, "Peer cancelled the transfer.")]
         public void BatchSenderStateMachineHandlesUnexpectedPeerInputMatrix(string scenario, byte peerByte, string expectedReason)
         {

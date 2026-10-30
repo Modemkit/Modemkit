@@ -133,6 +133,7 @@ namespace Ymodem.Protocol.Tests
                     YModemAction.SendControl can = Assert.IsType<YModemAction.SendControl>(action);
                     Assert.Equal(YModemControlBytes.Can, can.Value);
                 },
+                action => Assert.Equal(YModemControlBytes.Can, Assert.IsType<YModemAction.SendControl>(action).Value),
                 action =>
                 {
                     YModemAction.Cancel cancel = Assert.IsType<YModemAction.Cancel>(action);
@@ -156,6 +157,7 @@ namespace Ymodem.Protocol.Tests
                     YModemAction.SendControl can = Assert.IsType<YModemAction.SendControl>(action);
                     Assert.Equal(YModemControlBytes.Can, can.Value);
                 },
+                action => Assert.Equal(YModemControlBytes.Can, Assert.IsType<YModemAction.SendControl>(action).Value),
                 action =>
                 {
                     YModemAction.Cancel cancel = Assert.IsType<YModemAction.Cancel>(action);

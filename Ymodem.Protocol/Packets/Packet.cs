@@ -40,6 +40,8 @@ namespace Ymodem.Protocol
 
         public sealed class Data : YModemPacket
         {
+            private readonly byte[] _payload;
+
             public Data(int blockNumber, byte[] payload, int dataLength)
                 : this(blockNumber, payload, dataLength, 0)
             {
@@ -73,7 +75,7 @@ namespace Ymodem.Protocol
                 }
 
                 BlockNumber = blockNumber;
-                Payload = payload;
+                _payload = (byte[])payload.Clone();
                 DataLength = dataLength;
                 BlockSize = blockSize;
             }
@@ -85,7 +87,7 @@ namespace Ymodem.Protocol
 
             public byte[] Payload
             {
-                get;
+                get => (byte[])_payload.Clone();
             }
 
             public int DataLength

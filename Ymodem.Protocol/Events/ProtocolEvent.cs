@@ -12,6 +12,20 @@ namespace Ymodem.Protocol
         {
         }
 
+        public sealed class TimeoutElapsed : YModemEvent
+        {
+        }
+
+        public sealed class InvalidFrameReceived : YModemEvent
+        {
+            public InvalidFrameReceived(string? reason = null)
+            {
+                Reason = reason ?? "Invalid wire frame.";
+            }
+
+            public string Reason { get; }
+        }
+
         public sealed class PeerByteReceived : YModemEvent
         {
             public PeerByteReceived(byte value)

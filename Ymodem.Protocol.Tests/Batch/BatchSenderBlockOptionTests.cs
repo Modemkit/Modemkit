@@ -63,7 +63,9 @@ namespace Ymodem.Protocol.Tests
 
             YModemBatchStepResult step = sender.Advance(new YModemEvent.CancelRequested("stop"));
 
-            YModemAction.Cancel cancel = Assert.IsType<YModemAction.Cancel>(Assert.Single(step.Actions));
+            Assert.Equal(YModemControlBytes.Can, Assert.IsType<YModemAction.SendControl>(step.Actions[0]).Value);
+            Assert.Equal(YModemControlBytes.Can, Assert.IsType<YModemAction.SendControl>(step.Actions[1]).Value);
+            YModemAction.Cancel cancel = Assert.IsType<YModemAction.Cancel>(step.Actions[2]);
             Assert.Equal("stop", cancel.Reason);
             Assert.Equal(YModemBatchSenderPhase.Cancelled, step.Snapshot.Phase);
         }

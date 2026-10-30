@@ -11,7 +11,7 @@ namespace Ymodem.Protocol.Tests
             var payload = new byte[1024];
 
             sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest));
-            sender.Advance(new YModemEvent.FileHeaderReady(new YModemFileDescriptor("large.bin", (256L * 1024) + 1)));
+            sender.Advance(new YModemEvent.FileHeaderReady(new YModemFileDescriptor("large.bin", (255L * 1024) + 1)));
             sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.Ack));
 
             YModemAction.RequestDataBlock requestData = Assert.IsType<YModemAction.RequestDataBlock>(Assert.Single(sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest)).Actions));

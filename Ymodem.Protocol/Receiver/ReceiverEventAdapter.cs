@@ -38,6 +38,12 @@ namespace Ymodem.Protocol
         /// </param>
         public YModemEvent Decode(byte[] bytes, bool isDataPhase)
         {
+            return Decode(bytes, YModemIntegrity.Crc16, isDataPhase);
+        }
+
+        public YModemEvent Decode(byte[] bytes, YModemIntegrity integrity, bool isDataPhase = false)
+        {
+            YModemIntegrityChecks.Validate(integrity);
             if (bytes == null)
             {
                 throw new ArgumentNullException(nameof(bytes));
@@ -48,7 +54,7 @@ namespace Ymodem.Protocol
                 return new YModemEvent.CancelRequested("Peer cancelled the transfer.");
             }
 
-            var packet = _packetDecoder.Decode(bytes, isDataPhase);
+            var packet = _packetDecoder.Decode(bytes, integrity, isDataPhase);
             return new YModemEvent.PacketReceived(packet);
         }
     }

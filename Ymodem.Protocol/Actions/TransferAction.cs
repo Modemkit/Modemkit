@@ -34,10 +34,19 @@ namespace Ymodem.Protocol
         public sealed class SendPacket : YModemAction
         {
             public SendPacket(YModemPacket packet, string? description)
+                : this(packet, description, YModemIntegrity.Crc16)
             {
+            }
+
+            public SendPacket(YModemPacket packet, string? description, YModemIntegrity integrity)
+            {
+                YModemIntegrityChecks.Validate(integrity);
                 Packet = packet ?? throw new ArgumentNullException(nameof(packet));
                 Description = description ?? string.Empty;
+                Integrity = integrity;
             }
+
+            public YModemIntegrity Integrity { get; }
 
             public YModemPacket Packet
             {

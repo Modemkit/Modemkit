@@ -34,7 +34,7 @@ namespace Ymodem.Protocol.Tests
             YModemAction.SendPacket sendData = Assert.IsType<YModemAction.SendPacket>(Assert.Single(step5.Actions));
             YModemPacket.Data dataPacket = Assert.IsType<YModemPacket.Data>(sendData.Packet);
             Assert.Equal(1, dataPacket.BlockNumber);
-            Assert.Same(payload, dataPacket.Payload);
+            Assert.Equal(payload, dataPacket.Payload);
             Assert.Equal(3, dataPacket.DataLength);
             Assert.Equal(YModemSenderPhase.WaitingBlockAck, step5.Snapshot.Phase);
 
@@ -69,7 +69,7 @@ namespace Ymodem.Protocol.Tests
             var payload = new byte[1024];
 
             sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest));
-            sender.Advance(new YModemEvent.FileHeaderReady(new YModemFileDescriptor("large.bin", (256L * 1024) + 1)));
+            sender.Advance(new YModemEvent.FileHeaderReady(new YModemFileDescriptor("large.bin", (255L * 1024) + 1)));
             sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.Ack));
 
             YModemAction.RequestDataBlock requestData = Assert.IsType<YModemAction.RequestDataBlock>(Assert.Single(sender.Advance(new YModemEvent.PeerByteReceived(YModemControlBytes.CrcRequest)).Actions));
@@ -445,6 +445,8 @@ namespace Ymodem.Protocol.Tests
 
             Assert.Collection(
                 step.Actions,
+                action => Assert.Equal(YModemControlBytes.Can, Assert.IsType<YModemAction.SendControl>(action).Value),
+                action => Assert.Equal(YModemControlBytes.Can, Assert.IsType<YModemAction.SendControl>(action).Value),
                 action =>
                 {
                     YModemAction.Cancel cancel = Assert.IsType<YModemAction.Cancel>(action);

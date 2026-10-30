@@ -78,7 +78,7 @@ namespace Ymodem.Protocol
                 throw new ArgumentNullException(nameof(file));
             }
 
-            return file.FileName + "\0" + file.FileSize.ToString(CultureInfo.InvariantCulture) + "\0";
+            return file.FileName + "\0" + (file.HasFileSize ? file.FileSize.ToString(CultureInfo.InvariantCulture) : string.Empty) + "\0";
         }
 
         internal static int GetBlockSizeForPayloadLength(long payloadLength)

@@ -6,6 +6,9 @@ namespace Ymodem.Protocol
     public sealed class YModemReceiver
     {
         private readonly List<YModemAction> _actions;
+        private readonly YModemTransferOptions _transferOptions;
+        private int _retryCount;
+        private bool _fileEnded;
 
         private YModemReceiverPhase _phase;
         private YModemFileDescriptor? _currentFile;
@@ -15,7 +18,13 @@ namespace Ymodem.Protocol
         private string? _failureReason;
 
         public YModemReceiver()
+            : this(new YModemTransferOptions())
         {
+        }
+
+        public YModemReceiver(YModemTransferOptions transferOptions)
+        {
+            _transferOptions = transferOptions ?? throw new ArgumentNullException(nameof(transferOptions));
             _actions = new List<YModemAction>();
             _phase = YModemReceiverPhase.Idle;
             _nextBlockNumber = 1;
@@ -29,6 +38,13 @@ namespace Ymodem.Protocol
             }
         }
 
+        public YModemIntegrity Integrity => _transferOptions.Mode == YModemTransferMode.Checksum ? YModemIntegrity.Checksum : YModemIntegrity.Crc16;
+
+        private bool IsStreaming => _transferOptions.Mode == YModemTransferMode.G;
+
+        private byte RequestByte => IsStreaming ? YModemControlBytes.StreamingRequest :
+            (Integrity == YModemIntegrity.Checksum ? YModemControlBytes.Nak : YModemControlBytes.CrcRequest);
+
         public YModemReceiveStepResult Advance(YModemEvent protocolEvent)
         {
             if (protocolEvent == null)
@@ -38,6 +54,11 @@ namespace Ymodem.Protocol
 
             _actions.Clear();
 
+            if (!IsStreaming && _phase == YModemReceiverPhase.Completed && protocolEvent is YModemEvent.PacketReceived repeatedTrailer && repeatedTrailer.Packet is YModemPacket.BatchTrailer)
+            {
+                _actions.Add(new YModemAction.SendControl(YModemControlBytes.Ack, "Acknowledge repeated batch trailer"));
+            }
+
             if (_phase == YModemReceiverPhase.Cancelled || _phase == YModemReceiverPhase.Completed || _phase == YModemReceiverPhase.Faulted)
             {
                 return new YModemReceiveStepResult(CreateSnapshot(), _actions.ToArray());
@@ -45,6 +66,12 @@ namespace Ymodem.Protocol
 
             switch (protocolEvent)
             {
+                case YModemEvent.TimeoutElapsed _:
+                    HandleTimeout();
+                    break;
+                case YModemEvent.InvalidFrameReceived invalidFrame:
+                    RejectFrame(invalidFrame.Reason);
+                    break;
                 case YModemEvent.StartRequested _:
                     HandleStartRequested();
                     break;
@@ -83,11 +110,25 @@ namespace Ymodem.Protocol
             }
 
             _phase = YModemReceiverPhase.WaitingFileHeaderPacket;
-            _actions.Add(new YModemAction.SendControl(YModemControlBytes.CrcRequest, "Request file header"));
+            _actions.Add(new YModemAction.SendControl(RequestByte, "Request file header"));
         }
 
         private void HandlePacketReceived(YModemPacket packet)
         {
+            if (_fileEnded && _phase == YModemReceiverPhase.WaitingBatchTrailer && packet is YModemPacket.Eot)
+            {
+                _actions.Add(new YModemAction.SendControl(YModemControlBytes.Ack, "Acknowledge repeated EOT"));
+                _actions.Add(new YModemAction.SendControl(RequestByte, "Request next header"));
+                return;
+            }
+
+            if ((_phase == YModemReceiverPhase.WaitingFileHeaderDecision && packet is YModemPacket.Header) ||
+                (_phase == YModemReceiverPhase.WaitingDataBlockDecision && packet is YModemPacket.Data pending &&
+                _pendingDataPacket != null && MatchesBlockNumber(pending.BlockNumber, _nextBlockNumber)))
+            {
+                return;
+            }
+
             switch (_phase)
             {
                 case YModemReceiverPhase.WaitingFileHeaderPacket:
@@ -117,6 +158,8 @@ namespace Ymodem.Protocol
                 return;
             }
 
+            _retryCount = 0;
+            _fileEnded = false;
             _currentFile = header.File;
             _phase = YModemReceiverPhase.WaitingFileHeaderDecision;
             _actions.Add(new YModemAction.OfferFileHeader(header.File));
@@ -130,11 +173,15 @@ namespace Ymodem.Protocol
                 return;
             }
 
-            _remainingFileBytes = _currentFile.FileSize;
+            _remainingFileBytes = _currentFile.HasFileSize ? _currentFile.FileSize : -1;
             _nextBlockNumber = 1;
             _phase = YModemReceiverPhase.WaitingDataPacketOrEot;
-            _actions.Add(new YModemAction.SendControl(YModemControlBytes.Ack, "Acknowledge file header"));
-            _actions.Add(new YModemAction.SendControl(YModemControlBytes.CrcRequest, "Request first data block"));
+            if (!IsStreaming)
+            {
+                _actions.Add(new YModemAction.SendControl(YModemControlBytes.Ack, "Acknowledge file header"));
+            }
+
+            _actions.Add(new YModemAction.SendControl(RequestByte, "Request first data block"));
         }
 
         private void HandleFileHeaderRejected(string reason)
@@ -147,13 +194,40 @@ namespace Ymodem.Protocol
 
             _phase = YModemReceiverPhase.Cancelled;
             _actions.Add(new YModemAction.SendControl(YModemControlBytes.Can, "Reject file header"));
+            _actions.Add(new YModemAction.SendControl(YModemControlBytes.Can, "Reject file header"));
             _actions.Add(new YModemAction.Cancel(reason));
         }
 
         private void HandleDataOrEot(YModemPacket packet)
         {
+            if (packet is YModemPacket.Header repeatedHeader && _nextBlockNumber == 1 &&
+                _currentFile != null && repeatedHeader.File.FileName == _currentFile.FileName &&
+                repeatedHeader.File.FileSize == _currentFile.FileSize)
+            {
+                if (!IsStreaming)
+                {
+                    _actions.Add(new YModemAction.SendControl(YModemControlBytes.Ack, "Acknowledge repeated file header"));
+                }
+
+                _actions.Add(new YModemAction.SendControl(RequestByte, "Request first data block"));
+                return;
+            }
+
             if (packet is YModemPacket.Eot)
             {
+                if (_remainingFileBytes > 0)
+                {
+                    RejectFrame("EOT arrived before the advertised file length.");
+                    return;
+                }
+
+                if (IsStreaming)
+                {
+                    FinishFile();
+                    return;
+                }
+
+                _retryCount = 0;
                 _phase = YModemReceiverPhase.WaitingSecondEot;
                 _actions.Add(new YModemAction.SendControl(YModemControlBytes.Nak, "Request second EOT"));
                 return;
@@ -168,21 +242,35 @@ namespace Ymodem.Protocol
 
             var previousBlockNumber = _nextBlockNumber - 1;
 
-            if (MatchesBlockNumber(data.BlockNumber, previousBlockNumber))
+            if (_nextBlockNumber > 1 && MatchesBlockNumber(data.BlockNumber, previousBlockNumber))
             {
-                _actions.Add(new YModemAction.SendControl(YModemControlBytes.Ack, "Acknowledge repeated data block"));
+                if (IsStreaming)
+                {
+                    RejectFrame("Repeated data block during YMODEM-G transfer.");
+                }
+                else
+                {
+                    _actions.Add(new YModemAction.SendControl(YModemControlBytes.Ack, "Acknowledge repeated data block"));
+                }
+
                 return;
             }
 
             if (!MatchesBlockNumber(data.BlockNumber, _nextBlockNumber))
             {
-                _actions.Add(new YModemAction.SendControl(YModemControlBytes.Nak, "Reject unexpected data block"));
+                RejectFrame("Unexpected data block number.");
                 return;
             }
 
-            var dataLength = _remainingFileBytes > data.Payload.Length
-                ? data.Payload.Length
+            var dataLength = _remainingFileBytes < 0 || _remainingFileBytes > data.DataLength
+                ? data.DataLength
                 : (int)_remainingFileBytes;
+
+            if (_remainingFileBytes == 0 || data.DataLength == 0)
+            {
+                RejectFrame("Unexpected data beyond the advertised file length.");
+                return;
+            }
 
             _pendingDataPacket = data;
             _phase = YModemReceiverPhase.WaitingDataBlockDecision;
@@ -197,15 +285,19 @@ namespace Ymodem.Protocol
                 return;
             }
 
-            var deliveredLength = _remainingFileBytes > _pendingDataPacket.Payload.Length
-                ? _pendingDataPacket.Payload.Length
+            var deliveredLength = _remainingFileBytes < 0 || _remainingFileBytes > _pendingDataPacket.DataLength
+                ? _pendingDataPacket.DataLength
                 : (int)_remainingFileBytes;
 
-            _remainingFileBytes -= deliveredLength;
+            _retryCount = 0;
+            _remainingFileBytes = _remainingFileBytes < 0 ? -1 : _remainingFileBytes - deliveredLength;
             _nextBlockNumber++;
             _pendingDataPacket = null;
             _phase = YModemReceiverPhase.WaitingDataPacketOrEot;
-            _actions.Add(new YModemAction.SendControl(YModemControlBytes.Ack, "Acknowledge data block"));
+            if (!IsStreaming)
+            {
+                _actions.Add(new YModemAction.SendControl(YModemControlBytes.Ack, "Acknowledge data block"));
+            }
         }
 
         private void HandleDataBlockRejected()
@@ -218,7 +310,7 @@ namespace Ymodem.Protocol
 
             _pendingDataPacket = null;
             _phase = YModemReceiverPhase.WaitingDataPacketOrEot;
-            _actions.Add(new YModemAction.SendControl(YModemControlBytes.Nak, "Reject data block"));
+            RejectFrame("Data block rejected by the application.");
         }
 
         private static bool MatchesBlockNumber(int actualBlockNumber, int expectedBlockNumber)
@@ -234,9 +326,7 @@ namespace Ymodem.Protocol
                 return;
             }
 
-            _phase = YModemReceiverPhase.WaitingBatchTrailer;
-            _actions.Add(new YModemAction.SendControl(YModemControlBytes.Ack, "Acknowledge second EOT"));
-            _actions.Add(new YModemAction.SendControl(YModemControlBytes.CrcRequest, "Request batch trailer"));
+            FinishFile();
         }
 
         private void HandleBatchTrailer(YModemPacket packet)
@@ -248,13 +338,81 @@ namespace Ymodem.Protocol
             }
 
             _phase = YModemReceiverPhase.Completed;
-            _actions.Add(new YModemAction.SendControl(YModemControlBytes.Ack, "Acknowledge batch trailer"));
+            if (!IsStreaming)
+            {
+                _actions.Add(new YModemAction.SendControl(YModemControlBytes.Ack, "Acknowledge batch trailer"));
+            }
+
             _actions.Add(new YModemAction.Complete());
+        }
+
+        private void FinishFile()
+        {
+            _retryCount = 0;
+            _fileEnded = true;
+            _phase = YModemReceiverPhase.WaitingBatchTrailer;
+            _actions.Add(new YModemAction.SendControl(YModemControlBytes.Ack, "Acknowledge EOT"));
+            _actions.Add(new YModemAction.SendControl(RequestByte, "Request next header"));
+        }
+
+        private bool BeginRetry()
+        {
+            if (_retryCount++ >= _transferOptions.MaxRetries)
+            {
+                _actions.Add(new YModemAction.SendControl(YModemControlBytes.Can, "Retry limit reached"));
+                _actions.Add(new YModemAction.SendControl(YModemControlBytes.Can, "Retry limit reached"));
+                Fault("Retry limit exceeded.");
+                return false;
+            }
+
+            return true;
+        }
+
+        private void RejectFrame(string reason)
+        {
+            if (IsStreaming)
+            {
+                _actions.Add(new YModemAction.SendControl(YModemControlBytes.Can, "Abort streaming transfer"));
+                _actions.Add(new YModemAction.SendControl(YModemControlBytes.Can, "Abort streaming transfer"));
+                Fault(reason);
+                return;
+            }
+
+            if (BeginRetry())
+            {
+                _actions.Add(new YModemAction.SendControl(YModemControlBytes.Nak, reason));
+            }
+        }
+
+        private void HandleTimeout()
+        {
+            if (_phase == YModemReceiverPhase.Idle || _phase == YModemReceiverPhase.WaitingFileHeaderDecision ||
+                _phase == YModemReceiverPhase.WaitingDataBlockDecision)
+            {
+                return;
+            }
+
+            if (IsStreaming && _phase == YModemReceiverPhase.WaitingDataPacketOrEot)
+            {
+                RejectFrame("YMODEM-G data stream timed out.");
+                return;
+            }
+
+            if (!BeginRetry())
+            {
+                return;
+            }
+
+            var request = _phase == YModemReceiverPhase.WaitingFileHeaderPacket || _phase == YModemReceiverPhase.WaitingBatchTrailer ||
+                (_phase == YModemReceiverPhase.WaitingDataPacketOrEot && _nextBlockNumber == 1)
+                ? RequestByte : YModemControlBytes.Nak;
+            _actions.Add(new YModemAction.SendControl(request, "Retry after timeout"));
         }
 
         private void Cancel(string reason)
         {
             _phase = YModemReceiverPhase.Cancelled;
+            _actions.Add(new YModemAction.SendControl(YModemControlBytes.Can, "Cancel receive session"));
             _actions.Add(new YModemAction.SendControl(YModemControlBytes.Can, "Cancel receive session"));
             _actions.Add(new YModemAction.Cancel(reason));
         }

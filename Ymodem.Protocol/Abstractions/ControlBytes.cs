@@ -9,6 +9,7 @@ namespace Ymodem.Protocol
         public const byte Nak = 0x15;
         public const byte Can = 0x18;
         public const byte CrcRequest = 0x43; // 'C'
+        public const byte StreamingRequest = 0x47; // 'G'
         public const byte CpmEof = 0x1A;
     }
 }

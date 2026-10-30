@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Text;
 
 namespace Ymodem.Protocol
@@ -29,6 +30,12 @@ namespace Ymodem.Protocol
         /// </param>
         public YModemPacket Decode(byte[] bytes, bool isDataPhase)
         {
+            return Decode(bytes, YModemIntegrity.Crc16, isDataPhase);
+        }
+
+        public YModemPacket Decode(byte[] bytes, YModemIntegrity integrity, bool isDataPhase = false)
+        {
+            YModemIntegrityChecks.Validate(integrity);
             if (bytes == null)
             {
                 throw new ArgumentNullException(nameof(bytes));
@@ -44,7 +51,7 @@ namespace Ymodem.Protocol
                 throw new InvalidOperationException("Packet bytes are too short.");
             }
 
-            var blockSize = GetBlockSize(bytes[0], bytes.Length);
+            var blockSize = GetBlockSize(bytes[0], bytes.Length, integrity);
             var blockNumber = bytes[1];
             var blockNumberComplement = bytes[2];
             if (blockNumberComplement != unchecked((byte)(255 - blockNumber)))
@@ -55,11 +62,21 @@ namespace Ymodem.Protocol
             var payload = new byte[blockSize];
             Buffer.BlockCopy(bytes, 3, payload, 0, blockSize);
 
-            var expectedCrc = (ushort)((bytes[blockSize + 3] << 8) | bytes[blockSize + 4]);
-            var actualCrc = ComputeCrc16(payload, 0, blockSize);
-            if (expectedCrc != actualCrc)
+            if (integrity == YModemIntegrity.Checksum)
             {
-                throw new InvalidOperationException("Packet CRC is invalid.");
+                if (bytes[blockSize + 3] != YModemIntegrityChecks.Checksum(payload, 0, blockSize))
+                {
+                    throw new InvalidOperationException("Packet checksum is invalid.");
+                }
+            }
+            else
+            {
+                var expectedCrc = (ushort)((bytes[blockSize + 3] << 8) | bytes[blockSize + 4]);
+                var actualCrc = ComputeCrc16(payload, 0, blockSize);
+                if (expectedCrc != actualCrc)
+                {
+                    throw new InvalidOperationException("Packet CRC is invalid.");
+                }
             }
 
             if (blockNumber == 0 && !isDataPhase)
@@ -70,14 +87,15 @@ namespace Ymodem.Protocol
             return new YModemPacket.Data(blockNumber, payload, payload.Length, blockSize);
         }
 
-        private static int GetBlockSize(byte startByte, int totalLength)
+        private static int GetBlockSize(byte startByte, int totalLength, YModemIntegrity integrity)
         {
-            if (startByte == YModemControlBytes.Soh && totalLength == 133)
+            var overhead = integrity == YModemIntegrity.Crc16 ? 5 : 4;
+            if (startByte == YModemControlBytes.Soh && totalLength == 128 + overhead)
             {
                 return 128;
             }
 
-            if (startByte == YModemControlBytes.Stx && totalLength == 1029)
+            if (startByte == YModemControlBytes.Stx && totalLength == 1024 + overhead)
             {
                 return 1024;
             }
@@ -87,17 +105,7 @@ namespace Ymodem.Protocol
 
         private static YModemPacket DecodeBlockZero(byte[] payload)
         {
-            var isBatchTrailer = true;
-            for (var index = 0; index < payload.Length; index++)
-            {
-                if (payload[index] != 0)
-                {
-                    isBatchTrailer = false;
-                    break;
-                }
-            }
-
-            if (isBatchTrailer)
+            if (payload[0] == 0)
             {
                 return new YModemPacket.BatchTrailer();
             }
@@ -109,6 +117,19 @@ namespace Ymodem.Protocol
             }
 
             var fileName = Encoding.ASCII.GetString(payload, 0, nameEnd);
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                throw new InvalidOperationException("Header packet contains an empty file name.");
+            }
+
+            for (var index = 0; index < nameEnd; index++)
+            {
+                if (payload[index] >= 127 || payload[index] < 32)
+                {
+                    throw new InvalidOperationException("Header packet contains an invalid file name.");
+                }
+            }
+
             var sizeStart = nameEnd + 1;
             var sizeEnd = sizeStart;
             while (sizeEnd < payload.Length && payload[sizeEnd] != 0 && payload[sizeEnd] != 0x20)
@@ -117,7 +138,12 @@ namespace Ymodem.Protocol
             }
 
             var sizeText = Encoding.ASCII.GetString(payload, sizeStart, sizeEnd - sizeStart);
-            if (!long.TryParse(sizeText, out var fileSize))
+            if (sizeText.Length == 0)
+            {
+                return new YModemPacket.Header(new YModemFileDescriptor(fileName));
+            }
+
+            if (!long.TryParse(sizeText, NumberStyles.None, CultureInfo.InvariantCulture, out var fileSize))
             {
                 throw new InvalidOperationException("Header packet contains an invalid file size.");
             }
